@@ -26,3 +26,4 @@ und ohne Hub/Untereinträge, Profile oder ältere Listen.
 
 - `manifest.json` `version` bei **jeder** Änderung anheben (SemVer); `auto-release.yml` erstellt daraus Tag + Release.
 - Tests: `pip install pytest-homeassistant-custom-component && pytest`. CI: hassfest, HACS, pytest.
+- Icon: `brand/` und `custom_components/knx_media_player/brand/` (gleiche Dateien). Farben aus dem KNX-Logo (Grün `#0CB14B`, Grau `#8E979D`, Blau `#006BB6`), aber bewusst kein KNX-Logo oder -Schriftzug (Marke der KNX Association).
