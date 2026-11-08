@@ -22,7 +22,22 @@ und ohne Hub/Untereinträge, Profile oder ältere Listen.
   (Spiegel des Controllers über ein Dispatcher-Signal).
 - Übersetzungen `translations/de.json` und `en.json` müssen dieselbe Struktur haben.
 
+## Feste Arbeitsanweisungen
+
+- **Vor jeder inhaltlichen Umsetzung zuerst eine kurze Zusammenfassung im
+  Chat (betroffene Dateien, neue Optionen/Entitäten, Verhaltensänderung,
+  getroffene Annahmen) posten und auf Bestätigung warten.**
+- Nach Bestätigung: Branch → Commit → Push → PR → CI (hassfest, HACS,
+  pytest) abwarten → Squash-Merge → Feature-Branch auf `main` zurücksetzen,
+  ohne erneut nachzufragen.
+- `manifest.json` `version` bei **jeder** Änderung anheben (SemVer); der
+  Workflow `auto-release.yml` erstellt daraus Tag + Release.
+
 ## Arbeitsweise
 
-- `manifest.json` `version` bei **jeder** Änderung anheben (SemVer); `auto-release.yml` erstellt daraus Tag + Release.
 - Tests: `pip install pytest-homeassistant-custom-component && pytest`. CI: hassfest, HACS, pytest.
+- Icon: `brand/` und `custom_components/knx_media_player/brand/` (gleiche Dateien, wie in `ha_housekeeper`): `icon.png` 256×256,
+  `icon@2x.png` 512×512, `logo.png` 256×256, `logo@2x.png` 512×512. Weißes Quadrat mit grauem Rand, blaues Play-Dreieck, drei
+  Schallwellen (Grün, Grau, Blau). Farben aus dem KNX-Logo (Grün `#0CB14B`, Grau `#8E979D`, Blau `#006BB6`), aber bewusst kein
+  KNX-Logo oder -Schriftzug (Marke der KNX Association). **Das Design nicht ohne Rückfrage ändern.**
+- README im Aufbau von `ha_housekeeper`: Badges, Funktionen, Installation, Bedienung, Abschnitte mit Entitäten und Hinweisen.
