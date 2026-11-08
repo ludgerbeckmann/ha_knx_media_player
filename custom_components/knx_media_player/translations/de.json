@@ -55,11 +55,15 @@
             "description": "Gilt, wenn ein Play-Befehl einen Player startet, der nicht spielt. So wird nie eine alte hohe Lautstärke übernommen. Leer = keine Änderung. Pausieren und bereits laufende Wiedergabe bleiben unberührt.",
             "data": {
               "start_volume": "Lautstärke beim Start",
-              "start_source": "Quelle beim Start"
+              "start_source": "Quelle beim Start",
+              "start_media": "Medium beim Start (Music Assistant)",
+              "start_media_type": "Typ des Mediums"
             },
             "data_description": {
               "start_volume": "Wird vor dem Start gesetzt, begrenzt durch die Lautstärkegrenze.",
-              "start_source": "Spielt diese Quelle (z. B. einen Sonos-Favoriten), statt nur fortzusetzen."
+              "start_source": "Spielt diese Quelle (z. B. einen Sonos-Favoriten), statt nur fortzusetzen.",
+              "start_media": "Name oder URI einer Playlist, eines Albums, Senders usw. Wird nur genutzt, wenn keine Quelle gesetzt ist.",
+              "start_media_type": "Leer = automatisch."
             }
           },
           "volume": {
@@ -123,11 +127,15 @@
             "description": "Wird bei Szenennummer 1 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
             "data": {
               "scene_1_source": "Quelle (z. B. Sonos-Favorit)",
+              "scene_1_media": "Medium (Music Assistant)",
+              "scene_1_media_type": "Typ des Mediums",
               "scene_1_volume": "Lautstärke",
               "scene_1_address": "1-Bit-Adresse"
             },
             "data_description": {
-              "scene_1_source": "Aus den Quellen des Players wählen oder den Namen eintippen."
+              "scene_1_source": "Aus den Quellen des Players wählen oder den Namen eintippen.",
+              "scene_1_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist.",
+              "scene_1_media_type": "Leer = automatisch."
             }
           },
           "scene_2": {
@@ -135,11 +143,15 @@
             "description": "Wird bei Szenennummer 2 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
             "data": {
               "scene_2_source": "Quelle (z. B. Sonos-Favorit)",
+              "scene_2_media": "Medium (Music Assistant)",
+              "scene_2_media_type": "Typ des Mediums",
               "scene_2_volume": "Lautstärke",
               "scene_2_address": "1-Bit-Adresse"
             },
             "data_description": {
-              "scene_2_source": "Aus den Quellen des Players wählen oder den Namen eintippen."
+              "scene_2_source": "Aus den Quellen des Players wählen oder den Namen eintippen.",
+              "scene_2_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist.",
+              "scene_2_media_type": "Leer = automatisch."
             }
           },
           "scene_3": {
@@ -147,11 +159,15 @@
             "description": "Wird bei Szenennummer 3 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
             "data": {
               "scene_3_source": "Quelle (z. B. Sonos-Favorit)",
+              "scene_3_media": "Medium (Music Assistant)",
+              "scene_3_media_type": "Typ des Mediums",
               "scene_3_volume": "Lautstärke",
               "scene_3_address": "1-Bit-Adresse"
             },
             "data_description": {
-              "scene_3_source": "Aus den Quellen des Players wählen oder den Namen eintippen."
+              "scene_3_source": "Aus den Quellen des Players wählen oder den Namen eintippen.",
+              "scene_3_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist.",
+              "scene_3_media_type": "Leer = automatisch."
             }
           },
           "scene_4": {
@@ -159,11 +175,15 @@
             "description": "Wird bei Szenennummer 4 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
             "data": {
               "scene_4_source": "Quelle (z. B. Sonos-Favorit)",
+              "scene_4_media": "Medium (Music Assistant)",
+              "scene_4_media_type": "Typ des Mediums",
               "scene_4_volume": "Lautstärke",
               "scene_4_address": "1-Bit-Adresse"
             },
             "data_description": {
-              "scene_4_source": "Aus den Quellen des Players wählen oder den Namen eintippen."
+              "scene_4_source": "Aus den Quellen des Players wählen oder den Namen eintippen.",
+              "scene_4_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist.",
+              "scene_4_media_type": "Leer = automatisch."
             }
           },
           "scene_5": {
@@ -171,11 +191,15 @@
             "description": "Wird bei Szenennummer 5 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
             "data": {
               "scene_5_source": "Quelle (z. B. Sonos-Favorit)",
+              "scene_5_media": "Medium (Music Assistant)",
+              "scene_5_media_type": "Typ des Mediums",
               "scene_5_volume": "Lautstärke",
               "scene_5_address": "1-Bit-Adresse"
             },
             "data_description": {
-              "scene_5_source": "Aus den Quellen des Players wählen oder den Namen eintippen."
+              "scene_5_source": "Aus den Quellen des Players wählen oder den Namen eintippen.",
+              "scene_5_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist.",
+              "scene_5_media_type": "Leer = automatisch."
             }
           }
         }
@@ -184,6 +208,18 @@
     "error": {
       "invalid_address": "Mindestens eine Gruppenadresse ist ungültig (erwartet z. B. 1/2/3).",
       "scene_no_trigger": "Eine Szene mit Quelle oder Lautstärke braucht die Szenenadresse oder eine eigene 1-Bit-Adresse."
+    }
+  },
+  "selector": {
+    "media_type": {
+      "options": {
+        "auto": "Automatisch",
+        "playlist": "Playlist",
+        "album": "Album",
+        "artist": "Interpret",
+        "track": "Titel",
+        "radio": "Radio"
+      }
     }
   },
   "entity": {

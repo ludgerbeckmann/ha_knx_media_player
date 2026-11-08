@@ -17,7 +17,7 @@ from custom_components.knx_media_player.controller import build_commands, build_
 PLAYER = "media_player.living_room"
 SERVICES = (
     "media_play", "media_pause", "media_stop", "media_next_track",
-    "media_previous_track", "volume_set", "volume_mute", "select_source",
+    "media_previous_track", "volume_set", "volume_mute", "select_source", "play_media",
 )
 
 
@@ -178,6 +178,38 @@ async def test_scenes(hass: HomeAssistant) -> None:
     assert len(m["media_pause"]) == 1
 
 
+async def test_scene_media_for_music_assistant(hass: HomeAssistant) -> None:
+    _, m = await _setup(
+        hass, addr_scene="3/0/1", scene_1_media="library://playlist/7", scene_1_media_type="playlist",
+        scene_1_volume=20, scene_2_media="Radio Paradise", scene_2_address="3/0/2",
+    )
+    await _telegram(hass, "3/0/1", (0,))  # Szene 1
+    assert m["volume_set"][-1].data["volume_level"] == 0.2
+    assert m["play_media"][-1].data == {
+        "entity_id": PLAYER, "media_content_id": "library://playlist/7",
+        "media_content_type": "playlist",
+    }
+    assert not m["select_source"]
+    await _telegram(hass, "3/0/2", 1)  # Szene 2 ohne Typ: automatisch
+    assert m["play_media"][-1].data["media_content_id"] == "Radio Paradise"
+    assert m["play_media"][-1].data["media_content_type"] == "music"
+
+
+async def test_start_media(hass: HomeAssistant) -> None:
+    _, m = await _setup(
+        hass, start_volume=10, start_media="library://album/3", start_media_type="album",
+        addr_toggle="1/0/4",
+    )
+    await _telegram(hass, "1/0/4", 1)
+    assert m["volume_set"][-1].data["volume_level"] == 0.1
+    assert m["play_media"][-1].data["media_content_type"] == "album"
+    assert not m["media_play"]
+    # eine gesetzte Startquelle hat Vorrang vor dem Medium
+    _, m2 = await _setup(hass, start_source="Jazz", start_media="x", addr_toggle="1/0/5")
+    await _telegram(hass, "1/0/5", 1)
+    assert m2["select_source"][-1].data["source"] == "Jazz"
+
+
 # --- Media Player -> KNX -----------------------------------------------------------
 
 
@@ -261,7 +293,7 @@ def page(**fields):
             sections["playback"][key] = value
         elif key in ("addr_volume", "addr_volume_step", "addr_volume_dim", "addr_mute"):
             sections["volume"][key] = value
-        elif key in ("start_volume", "start_source"):
+        elif key in ("start_volume", "start_source", "start_media", "start_media_type"):
             sections["start"][key] = value
         elif key == "addr_scene":
             sections["scenes"][key] = value
@@ -312,6 +344,10 @@ async def test_options_flow(hass: HomeAssistant) -> None:
     lonely = await hass.config_entries.options.async_configure(
         result["flow_id"], page(scene_3_source="Jazz"))
     assert lonely["errors"] == {"base": "scene_no_trigger"}
+
+    media_only = await hass.config_entries.options.async_configure(
+        result["flow_id"], page(scene_4_media="Radio Paradise"))
+    assert media_only["errors"] == {"base": "scene_no_trigger"}
 
     ok = await hass.config_entries.options.async_configure(
         result["flow_id"],

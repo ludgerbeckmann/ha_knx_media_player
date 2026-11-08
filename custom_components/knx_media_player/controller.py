@@ -24,6 +24,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ACT_MEDIA,
     ACT_MUTE_SET,
     ACT_NEXT,
     ACT_PAUSE,
@@ -48,6 +49,8 @@ from .const import (
     CONF_IDLE_TEXT,
     CONF_MAX_VOLUME,
     CONF_PLAYER,
+    CONF_START_MEDIA,
+    CONF_START_MEDIA_TYPE,
     CONF_START_SOURCE,
     CONF_START_VOLUME,
     CONF_STATUS_ALBUM,
@@ -63,6 +66,8 @@ from .const import (
     DEFAULT_MAX_VOLUME,
     DEFAULT_VOLUME_STEP,
     DOMAIN,
+    MEDIA_TYPE_AUTO,
+    PLAY_MEDIA_AUTO_TYPE,
     DPT_DIMMING,
     DPT_PERCENT,
     DPT_SCENE,
@@ -72,6 +77,8 @@ from .const import (
     K_DPT,
     K_ID,
     K_IDLE_TEXT,
+    K_MEDIA,
+    K_MEDIA_TYPE,
     K_SCENE,
     K_SOURCE,
     K_SOURCE_NAME,
@@ -178,6 +185,7 @@ def build_commands(get: Any) -> list[dict[str, Any]]:
             commands.append(command)
     for number in range(1, SCENE_COUNT + 1):
         source = get(scene_key(number, "source"))
+        media = get(scene_key(number, "media"))
         volume = get(scene_key(number, "volume"))
         bit_address = get(scene_key(number, "address"))
         triggers = []
@@ -201,6 +209,12 @@ def build_commands(get: Any) -> list[dict[str, Any]]:
                 commands.append(
                     {**base, K_ID: f"scene_{number}:{dpt}:src", K_ACTION: ACT_SOURCE,
                      K_SOURCE_NAME: source}
+                )
+            if media:
+                commands.append(
+                    {**base, K_ID: f"scene_{number}:{dpt}:media", K_ACTION: ACT_MEDIA,
+                     K_MEDIA: media,
+                     K_MEDIA_TYPE: get(scene_key(number, "media_type"), MEDIA_TYPE_AUTO)}
                 )
         if bit_address:
             commands.append(
@@ -451,8 +465,17 @@ class KnxMediaPlayerController:
         stop = bool(self._get(CONF_STOP_INSTEAD, False))
         await self._async_player_call("media_stop" if stop else "media_pause")
 
+    async def _async_play_media(self, media: str, media_type: str | None) -> None:
+        """Medium (Name, URI oder Sonos-/MA-Favorit) über `media_player.play_media` abspielen."""
+        content_type = (
+            PLAY_MEDIA_AUTO_TYPE if media_type in (None, MEDIA_TYPE_AUTO) else media_type
+        )
+        await self._async_player_call(
+            "play_media", media_content_id=media, media_content_type=content_type
+        )
+
     async def _async_start(self, state) -> None:
-        """Wiedergabe starten; spielt der Player noch nicht, zuerst Startlautstärke und Startquelle."""
+        """Wiedergabe starten; spielt der Player noch nicht, zuerst Startlautstärke und Startquelle/-medium."""
         if state.state != STATE_PLAYING:
             volume = self._get(CONF_START_VOLUME)
             if volume is not None:
@@ -460,6 +483,9 @@ class KnxMediaPlayerController:
             source = self._get(CONF_START_SOURCE)
             if source:
                 await self._async_player_call("select_source", source=source)
+                return
+            if media := self._get(CONF_START_MEDIA):
+                await self._async_play_media(media, self._get(CONF_START_MEDIA_TYPE))
                 return
         await self._async_player_call("media_play")
 
@@ -495,6 +521,8 @@ class KnxMediaPlayerController:
             await self._async_player_call("volume_mute", is_volume_muted=bool(value))
         elif action == ACT_SOURCE and command.get(K_SOURCE_NAME):
             await self._async_player_call("select_source", source=command[K_SOURCE_NAME])
+        elif action == ACT_MEDIA and command.get(K_MEDIA):
+            await self._async_play_media(command[K_MEDIA], command.get(K_MEDIA_TYPE))
 
     # --- Rückmeldungen (Media Player -> KNX) -----------------------------------
 

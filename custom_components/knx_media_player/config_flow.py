@@ -25,6 +25,8 @@ from .const import (
     CONF_MAX_VOLUME,
     CONF_NAME,
     CONF_PLAYER,
+    CONF_START_MEDIA,
+    CONF_START_MEDIA_TYPE,
     CONF_START_SOURCE,
     CONF_START_VOLUME,
     CONF_STATUS_ALBUM,
@@ -40,6 +42,7 @@ from .const import (
     DEFAULT_MAX_VOLUME,
     DEFAULT_VOLUME_STEP,
     DOMAIN,
+    MEDIA_TYPES,
     SCENE_COUNT,
     scene_key,
 )
@@ -150,6 +153,13 @@ def _options_schema(
             options=sources, custom_value=True, mode=selector.SelectSelectorMode.DROPDOWN
         )
     )
+    media_type = selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=MEDIA_TYPES,
+            translation_key="media_type",
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
     sections: dict[Any, Any] = {
         # nur der erste Abschnitt ist aufgeklappt
         vol.Required(SECTION_PLAYER): _section(
@@ -175,6 +185,12 @@ def _options_schema(
                 vol.Optional(
                     CONF_START_SOURCE, description=_suggest(CONF_START_SOURCE, defaults)
                 ): source,
+                vol.Optional(
+                    CONF_START_MEDIA, description=_suggest(CONF_START_MEDIA, defaults)
+                ): str,
+                vol.Optional(
+                    CONF_START_MEDIA_TYPE, description=_suggest(CONF_START_MEDIA_TYPE, defaults)
+                ): media_type,
             }
         ),
         vol.Required(SECTION_VOLUME): _section(_addresses(_VOLUME_FIELDS)),
@@ -189,10 +205,14 @@ def _options_schema(
         vol.Required(SECTION_SCENES): _section(_addresses([CONF_ADDR_SCENE])),
     }
     for number in range(1, SCENE_COUNT + 1):
-        src_key, vol_key, addr_key = (scene_key(number, f) for f in ("source", "volume", "address"))
+        src_key, vol_key, addr_key, media_key, type_key = (
+            scene_key(number, f) for f in ("source", "volume", "address", "media", "media_type")
+        )
         sections[vol.Required(f"scene_{number}")] = _section(
             {
                 vol.Optional(src_key, description=_suggest(src_key, defaults)): source,
+                vol.Optional(media_key, description=_suggest(media_key, defaults)): str,
+                vol.Optional(type_key, description=_suggest(type_key, defaults)): media_type,
                 vol.Optional(vol_key, description=_suggest(vol_key, defaults)): _number(0, 100),
                 **_addresses([addr_key]),
             }
@@ -216,7 +236,11 @@ def _validate(flat: dict[str, Any]) -> dict[str, str]:
     if any(flat.get(key) and not is_valid_ga(flat[key]) for key in ADDRESS_FIELDS):
         return {"base": "invalid_address"}
     for number in range(1, SCENE_COUNT + 1):
-        has_action = flat.get(scene_key(number, "source")) or flat.get(scene_key(number, "volume")) is not None
+        has_action = (
+            flat.get(scene_key(number, "source"))
+            or flat.get(scene_key(number, "media"))
+            or flat.get(scene_key(number, "volume")) is not None
+        )
         if has_action and not flat.get(CONF_ADDR_SCENE) and not flat.get(scene_key(number, "address")):
             return {"base": "scene_no_trigger"}
     return {}

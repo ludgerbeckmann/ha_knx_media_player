@@ -40,9 +40,15 @@ Das Prinzip stammt aus dem „KNX/Sonos-Connector“ von [ha_housekeeper](https:
 
 **Einstellungen des Players:** *Lautstärkegrenze* (Maximum über KNX), *Lautstärkeschritt* (für Lauter/Leiser und Dimmen) und *Stoppen statt Pause* (z. B. für Radiosender).
 
-**Start der Wiedergabe:** Startet ein Play-Befehl einen Player, der gerade nicht spielt, kann vorher eine *Startlautstärke* gesetzt und eine *Startquelle* (z. B. ein Sonos-Favorit) gewählt werden. So wird nie eine alte, hohe Lautstärke übernommen.
+**Start der Wiedergabe:** Startet ein Play-Befehl einen Player, der gerade nicht spielt, kann vorher eine *Startlautstärke* gesetzt und eine *Startquelle* (z. B. ein Sonos-Favorit) oder ein *Startmedium* (z. B. eine Music-Assistant-Playlist) gewählt werden. So wird nie eine alte, hohe Lautstärke übernommen.
 
-**Szenen 1–5:** Jede Szene kann eine Quelle (`media_player.select_source`, z. B. ein Sonos-Favorit) und/oder eine Lautstärke setzen. Ausgelöst wird sie über die Szenennummer auf der Szenenadresse oder über eine eigene 1-Bit-Adresse (1 = starten, 0 = Pause).
+**Szenen 1–5:** Jede Szene kann eine Lautstärke, eine Quelle und/oder ein Medium setzen. Ausgelöst wird sie über die Szenennummer auf der Szenenadresse oder über eine eigene 1-Bit-Adresse (1 = starten, 0 = Pause).
+
+- **Quelle** (`media_player.select_source`): z. B. ein Sonos-Favorit.
+- **Medium** (`media_player.play_media`): Name oder URI einer Playlist, eines Albums, Interpreten, Titels oder Radiosenders, z. B. `library://playlist/7` oder `Radio Paradise`. Das ist der Weg für **Music Assistant**, dessen Player keine Favoriten als Quellen anbieten. Der Typ (Playlist, Album, Interpret, Titel, Radio) ist optional; leer = automatisch.
+- Sind Quelle und Medium gesetzt, wird nur die Quelle verwendet.
+
+Dasselbe gibt es für den *Start der Wiedergabe* (*Medium beim Start*).
 
 ## Rückmeldungen (Media Player → KNX)
 
