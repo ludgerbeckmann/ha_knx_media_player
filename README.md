@@ -1,28 +1,65 @@
 # KNX Media Player
 
-Home-Assistant-Integration, mit der sich **Media Player über KNX steuern** lassen: Play, Pause, Stopp, Vor, Zurück, Lautstärke und mehr – und der aktuelle Zustand wird zurück auf den Bus gemeldet.
+[![Validate](https://github.com/ludgerbeckmann/ha_knx_media_player/actions/workflows/validate.yml/badge.svg)](https://github.com/ludgerbeckmann/ha_knx_media_player/actions/workflows/validate.yml)
+[![Tests](https://github.com/ludgerbeckmann/ha_knx_media_player/actions/workflows/tests.yml/badge.svg)](https://github.com/ludgerbeckmann/ha_knx_media_player/actions/workflows/tests.yml)
+[![Release](https://img.shields.io/github/v/release/ludgerbeckmann/ha_knx_media_player)](https://github.com/ludgerbeckmann/ha_knx_media_player/releases)
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
+![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.3%2B-blue.svg)
 
-Die Integration spricht nur die Standarddienste von `media_player` an. Sie funktioniert daher mit **Sonos**, **Music Assistant** und jeder anderen Integration, die einen Media Player bereitstellt. Sie baut keine eigene Busverbindung auf, sondern nutzt die offizielle **KNX-Integration** von Home Assistant (`knx.event_register`, `knx.send`, Ereignis `knx_event`).
+Eine Custom Integration, mit der sich **Media Player über KNX steuern** lassen: Play, Pause, Stopp, Vor, Zurück,
+Lautstärke und mehr. Der aktuelle Zustand wird zurück auf den Bus gemeldet. Jeder Media Player ist ein **eigener
+Eintrag** mit eigenem Gerät und eigenen Einstellungen. Alle Einstellungen sind Formulare in Home Assistant, es ist
+kein YAML nötig.
 
-Das Prinzip stammt aus dem „KNX/Sonos-Connector“ von [ha_housekeeper](https://github.com/ludgerbeckmann/ha_housekeeper), ist hier aber eigenständig, schlank und nicht auf Sonos beschränkt.
+Die Integration spricht nur die Standarddienste von `media_player` an. Sie funktioniert daher mit **Sonos**,
+**Music Assistant** und jeder anderen Integration, die einen Media Player bereitstellt. Sie baut keine eigene
+Busverbindung auf, sondern nutzt die offizielle **KNX-Integration** von Home Assistant (`knx.event_register`,
+`knx.send`, Ereignis `knx_event`).
 
-## Voraussetzungen
+Das Prinzip stammt aus dem „KNX/Sonos-Connector“ von
+[ha_housekeeper](https://github.com/ludgerbeckmann/ha_housekeeper), ist hier aber eigenständig, schlank und nicht
+auf Sonos beschränkt.
 
-- Home Assistant 2025.3 oder neuer
-- eingerichtete [KNX-Integration](https://www.home-assistant.io/integrations/knx/)
-- ein Media Player in Home Assistant
+## Funktionen
+
+| Funktion | Beschreibung |
+| --- | --- |
+| [Befehle](#befehle-knx--media-player) | Play/Pause, Vor/Zurück, Stopp, Umschalten, Lautstärke absolut, Lauter/Leiser, Dimmen, Stumm |
+| [Szenen](#szenen-und-start-der-wiedergabe) | Szenen 1–5 setzen Lautstärke, Quelle (z. B. Sonos-Favorit) und/oder Medium (z. B. Music-Assistant-Playlist) |
+| [Start der Wiedergabe](#szenen-und-start-der-wiedergabe) | Startlautstärke und Startquelle/-medium, damit nie eine alte hohe Lautstärke übernommen wird |
+| [Rückmeldungen](#rückmeldungen-media-player--knx) | Spielt/Pause, Lautstärke, Stumm, Titel, Interpret, Album und Quelle, auch als Antwort auf Lesetelegramme |
+| [Grenzen](#einstellungen-des-players) | Lautstärkegrenze, Lautstärkeschritt, „Stoppen statt Pause“ |
 
 ## Installation
 
-**HACS:** Repository als benutzerdefiniertes Repository (Kategorie *Integration*) hinzufügen, „KNX Media Player“ installieren, Home Assistant neu starten.
+**Schnellstart:**
 
-**Manuell:** `custom_components/knx_media_player` nach `config/custom_components/` kopieren und neu starten.
+1. Per HACS oder manuell installieren (siehe unten) und Home Assistant neu starten.
+2. *Einstellungen → Geräte & Dienste → Integration hinzufügen → KNX Media Player*, den Media Player auswählen
+   (optional einen Namen vergeben).
+3. Beim Eintrag über **Konfigurieren** die Gruppenadressen eintragen, danach jederzeit ändern.
 
-## Einrichtung
+**HACS:** Menü (⋮) → *Benutzerdefinierte Repositories* → diese Repository-URL,
+Kategorie *Integration* → „KNX Media Player“ installieren → Home Assistant neu starten.
 
-1. *Einstellungen → Geräte & Dienste → Integration hinzufügen → KNX Media Player*.
-2. Media Player auswählen (optional einen Namen vergeben). **Pro Media Player gibt es einen Eintrag**; für weitere Lautsprecher den Vorgang wiederholen.
-3. Beim Eintrag auf *Konfigurieren* klicken und die Gruppenadressen eintragen. Leere Felder werden nicht verwendet. Ist in der KNX-Integration ein ETS-Projekt importiert, bieten die Felder die passenden Adressen zur Auswahl an.
+**Manuell:** `custom_components/knx_media_player` nach `<config>/custom_components/`
+kopieren und neu starten.
+
+Voraussetzungen sind Home Assistant 2025.3 oder neuer, die eingerichtete
+[KNX-Integration](https://www.home-assistant.io/integrations/knx/) und ein Media Player in Home Assistant.
+
+**Pro Media Player gibt es einen Eintrag**; für weitere Lautsprecher den Vorgang wiederholen. Der Name ist
+optional (leer = Name des Media Players).
+
+## Bedienung der Einstellungen
+
+**Konfigurieren** am Eintrag öffnet **eine Seite** mit Abschnitten; nur „Media Player“ ist aufgeklappt, die übrigen
+sind eingeklappt. Leere Gruppenadressen werden nicht verwendet. Ist in der KNX-Integration ein ETS-Projekt
+importiert, bieten die Adressfelder die passenden Gruppenadressen (nach Datentyp gefiltert) zur Auswahl an; freie
+Eingabe ist weiter möglich.
+
+Nach dem Speichern wird der Eintrag neu geladen und die Adressen werden bei der KNX-Integration neu angemeldet.
+Die Seite prüft die Eingaben (ungültige Gruppenadresse, Szene ohne Auslöser).
 
 ## Befehle (KNX → Media Player)
 
@@ -38,17 +75,28 @@ Das Prinzip stammt aus dem „KNX/Sonos-Connector“ von [ha_housekeeper](https:
 | Stumm | 1 Bit | 1 = stumm, 0 = Stumm aus |
 | Szenenadresse | 17.001 | startet Szene 1–5 |
 
-**Einstellungen des Players:** *Lautstärkegrenze* (Maximum über KNX), *Lautstärkeschritt* (für Lauter/Leiser und Dimmen) und *Stoppen statt Pause* (z. B. für Radiosender).
+### Einstellungen des Players
 
-**Start der Wiedergabe:** Startet ein Play-Befehl einen Player, der gerade nicht spielt, kann vorher eine *Startlautstärke* gesetzt und eine *Startquelle* (z. B. ein Sonos-Favorit) oder ein *Startmedium* (z. B. eine Music-Assistant-Playlist) gewählt werden. So wird nie eine alte, hohe Lautstärke übernommen.
+*Lautstärkegrenze* (Maximum über KNX), *Lautstärkeschritt* (für Lauter/Leiser und Dimmen) und
+*Stoppen statt Pause* (z. B. für Radiosender).
 
-**Szenen 1–5:** Jede Szene kann eine Lautstärke, eine Quelle und/oder ein Medium setzen. Ausgelöst wird sie über die Szenennummer auf der Szenenadresse oder über eine eigene 1-Bit-Adresse (1 = starten, 0 = Pause).
+## Szenen und Start der Wiedergabe
+
+**Start der Wiedergabe:** Startet ein Play-Befehl einen Player, der gerade nicht spielt, kann vorher eine
+*Startlautstärke* gesetzt und eine *Startquelle* (z. B. ein Sonos-Favorit) oder ein *Startmedium*
+(z. B. eine Music-Assistant-Playlist) gewählt werden. So wird nie eine alte, hohe Lautstärke übernommen.
+Pausieren und bereits laufende Wiedergabe bleiben unberührt.
+
+**Szenen 1–5:** Jede Szene kann eine Lautstärke, eine Quelle und/oder ein Medium setzen. Ausgelöst wird sie über
+die Szenennummer auf der Szenenadresse oder über eine eigene 1-Bit-Adresse (1 = starten, 0 = Pause). Eine Szene
+mit Quelle, Medium oder Lautstärke braucht die Szenenadresse oder eine eigene 1-Bit-Adresse.
 
 - **Quelle** (`media_player.select_source`): z. B. ein Sonos-Favorit.
-- **Medium** (`media_player.play_media`): Name oder URI einer Playlist, eines Albums, Interpreten, Titels oder Radiosenders, z. B. `library://playlist/7` oder `Radio Paradise`. Das ist der Weg für **Music Assistant**, dessen Player keine Favoriten als Quellen anbieten. Der Typ (Playlist, Album, Interpret, Titel, Radio) ist optional; leer = automatisch.
+- **Medium** (`media_player.play_media`): Name oder URI einer Playlist, eines Albums, Interpreten, Titels oder
+  Radiosenders, z. B. `library://playlist/7` oder `Radio Paradise`. Das ist der Weg für **Music Assistant**,
+  dessen Player keine Favoriten als Quellen anbieten. Der Typ (Playlist, Album, Interpret, Titel, Radio) ist
+  optional; leer = automatisch.
 - Sind Quelle und Medium gesetzt, wird nur die Quelle verwendet.
-
-Dasselbe gibt es für den *Start der Wiedergabe* (*Medium beim Start*).
 
 ## Rückmeldungen (Media Player → KNX)
 
@@ -72,9 +120,12 @@ Je Eintrag entstehen ein Gerät mit
 
 ## Hinweise
 
-- Die Anmeldung der Adressen bei der KNX-Integration gilt nur zur Laufzeit und wird alle 5 Minuten sowie nach einem Neuladen der KNX-Integration wiederholt.
+- Die Anmeldung der Adressen bei der KNX-Integration gilt nur zur Laufzeit und wird alle 5 Minuten sowie nach
+  einem Neuladen der KNX-Integration wiederholt.
 - Ausgehende Telegramme (auch die eigenen Rückmeldungen) werden nie als Befehl ausgewertet.
 - Ist der Media Player `unavailable`/`unknown`, werden Befehle ignoriert.
+- Die Farben des Icons stammen aus dem KNX-Logo. „KNX“ ist eine Marke der KNX Association; diese Integration ist
+  ein unabhängiges Projekt.
 
 ## Entwicklung
 
@@ -83,4 +134,5 @@ pip install pytest-homeassistant-custom-component
 pytest
 ```
 
-Lizenz: siehe [LICENSE](LICENSE).
+Der Workflow `auto-release.yml` erstellt aus der Version in `manifest.json` bei jeder Änderung auf `main` Tag und
+Release. Lizenz: siehe [LICENSE](LICENSE).
