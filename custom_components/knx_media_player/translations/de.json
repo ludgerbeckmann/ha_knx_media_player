@@ -1,0 +1,201 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "KNX Media Player",
+        "description": "Wähle den Media Player, der über KNX gesteuert werden soll (z. B. Sonos oder Music Assistant). Die Gruppenadressen legst du danach in den Optionen fest.",
+        "data": {
+          "player": "Media Player",
+          "name": "Name (optional)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Für diesen Media Player gibt es bereits einen Eintrag."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "KNX Media Player",
+        "description": "Alle Einstellungen auf einer Seite. Leere Gruppenadressen werden nicht verwendet.",
+        "sections": {
+          "player_settings": {
+            "name": "Media Player",
+            "description": "Grenzen und Verhalten für {player}.",
+            "data": {
+              "max_volume": "Lautstärkegrenze",
+              "volume_step": "Lautstärkeschritt",
+              "stop_instead_of_pause": "Stoppen statt Pause"
+            },
+            "data_description": {
+              "max_volume": "Höchste Lautstärke, die über KNX eingestellt werden kann.",
+              "volume_step": "Schritt für „Lauter/Leiser“ und relatives Dimmen.",
+              "stop_instead_of_pause": "Bei „Pause“ wird die Wiedergabe gestoppt (z. B. für Radiosender)."
+            }
+          },
+          "playback": {
+            "name": "Wiedergabe",
+            "description": "Gruppenadressen für die Steuerung. Leere Felder werden nicht verwendet.",
+            "data": {
+              "addr_play_pause": "Play/Pause Schalter (1 Bit)",
+              "addr_next_prev": "Nächster/Vorheriger Titel (1 Bit)",
+              "addr_stop": "Stopp (1 Bit)",
+              "addr_toggle": "Play/Pause Taster (1 Bit)"
+            },
+            "data_description": {
+              "addr_play_pause": "1 = Wiedergabe, 0 = Pause.",
+              "addr_next_prev": "1 = nächster, 0 = vorheriger Titel.",
+              "addr_stop": "1 = Stopp.",
+              "addr_toggle": "1 = zwischen Wiedergabe und Pause umschalten. 0 wird ignoriert."
+            }
+          },
+          "start": {
+            "name": "Start der Wiedergabe",
+            "description": "Gilt, wenn ein Play-Befehl einen Player startet, der nicht spielt. So wird nie eine alte hohe Lautstärke übernommen. Leer = keine Änderung. Pausieren und bereits laufende Wiedergabe bleiben unberührt.",
+            "data": {
+              "start_volume": "Lautstärke beim Start",
+              "start_source": "Quelle beim Start"
+            },
+            "data_description": {
+              "start_volume": "Wird vor dem Start gesetzt, begrenzt durch die Lautstärkegrenze.",
+              "start_source": "Spielt diese Quelle (z. B. einen Sonos-Favoriten), statt nur fortzusetzen."
+            }
+          },
+          "volume": {
+            "name": "Lautstärke",
+            "description": "Gruppenadressen für die Lautstärke.",
+            "data": {
+              "addr_volume": "Lautstärke absolut (5.001)",
+              "addr_volume_step": "Lauter/Leiser (1 Bit)",
+              "addr_volume_dim": "Relatives Dimmen (3.007)",
+              "addr_mute": "Stumm (1 Bit)"
+            },
+            "data_description": {
+              "addr_volume": "0–100 %, begrenzt durch die Lautstärkegrenze.",
+              "addr_volume_step": "1 = einen Schritt lauter, 0 = einen Schritt leiser.",
+              "addr_volume_dim": "Pro Telegramm ein Schritt, Schrittcode 0 = Stopp.",
+              "addr_mute": "1 = stumm, 0 = Stumm aus."
+            }
+          },
+          "status_play": {
+            "name": "Rückmeldung Wiedergabe",
+            "description": "Gruppenadressen, an die gesendet wird, ob der Player spielt oder pausiert (auch als Antwort auf Lesetelegramme).",
+            "data": {
+              "status_playing": "Spielt (1 Bit)",
+              "status_paused": "Pausiert (1 Bit)"
+            }
+          },
+          "status_level": {
+            "name": "Rückmeldung Lautstärke",
+            "description": "Gruppenadressen für Lautstärke und Stumm.",
+            "data": {
+              "status_volume": "Lautstärke (5.001)",
+              "status_muted": "Stumm (1 Bit)"
+            }
+          },
+          "status_text": {
+            "name": "Rückmeldung Text",
+            "description": "Textadressen (DPT 16.001, 14 Zeichen) für die aktuelle Wiedergabe, z. B. für ein Display.",
+            "data": {
+              "status_title": "Titel",
+              "status_artist": "Interpret",
+              "status_album": "Album",
+              "status_source": "Quelle",
+              "idle_text": "Text, wenn nichts spielt"
+            },
+            "data_description": {
+              "idle_text": "Wird gesendet, solange der Player nicht spielt. Leer = leerer Text."
+            }
+          },
+          "scenes": {
+            "name": "Szenen",
+            "description": "Die Szenen 1 bis 5 stehen in den folgenden Abschnitten.",
+            "data": {
+              "addr_scene": "Szenenadresse (17.001)"
+            },
+            "data_description": {
+              "addr_scene": "Die Szenennummer 1 bis 5 startet die Szene mit dieser Nummer."
+            }
+          },
+          "scene_1": {
+            "name": "Szene 1",
+            "description": "Wird bei Szenennummer 1 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
+            "data": {
+              "scene_1_source": "Quelle (z. B. Sonos-Favorit)",
+              "scene_1_volume": "Lautstärke",
+              "scene_1_address": "1-Bit-Adresse"
+            },
+            "data_description": {
+              "scene_1_source": "Aus den Quellen des Players wählen oder den Namen eintippen."
+            }
+          },
+          "scene_2": {
+            "name": "Szene 2",
+            "description": "Wird bei Szenennummer 2 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
+            "data": {
+              "scene_2_source": "Quelle (z. B. Sonos-Favorit)",
+              "scene_2_volume": "Lautstärke",
+              "scene_2_address": "1-Bit-Adresse"
+            },
+            "data_description": {
+              "scene_2_source": "Aus den Quellen des Players wählen oder den Namen eintippen."
+            }
+          },
+          "scene_3": {
+            "name": "Szene 3",
+            "description": "Wird bei Szenennummer 3 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
+            "data": {
+              "scene_3_source": "Quelle (z. B. Sonos-Favorit)",
+              "scene_3_volume": "Lautstärke",
+              "scene_3_address": "1-Bit-Adresse"
+            },
+            "data_description": {
+              "scene_3_source": "Aus den Quellen des Players wählen oder den Namen eintippen."
+            }
+          },
+          "scene_4": {
+            "name": "Szene 4",
+            "description": "Wird bei Szenennummer 4 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
+            "data": {
+              "scene_4_source": "Quelle (z. B. Sonos-Favorit)",
+              "scene_4_volume": "Lautstärke",
+              "scene_4_address": "1-Bit-Adresse"
+            },
+            "data_description": {
+              "scene_4_source": "Aus den Quellen des Players wählen oder den Namen eintippen."
+            }
+          },
+          "scene_5": {
+            "name": "Szene 5",
+            "description": "Wird bei Szenennummer 5 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
+            "data": {
+              "scene_5_source": "Quelle (z. B. Sonos-Favorit)",
+              "scene_5_volume": "Lautstärke",
+              "scene_5_address": "1-Bit-Adresse"
+            },
+            "data_description": {
+              "scene_5_source": "Aus den Quellen des Players wählen oder den Namen eintippen."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "invalid_address": "Mindestens eine Gruppenadresse ist ungültig (erwartet z. B. 1/2/3).",
+      "scene_no_trigger": "Eine Szene mit Quelle oder Lautstärke braucht die Szenenadresse oder eine eigene 1-Bit-Adresse."
+    }
+  },
+  "entity": {
+    "switch": {
+      "active": {
+        "name": "KNX-Steuerung aktiv"
+      }
+    },
+    "sensor": {
+      "last_command": {
+        "name": "Letzter KNX-Befehl"
+      }
+    }
+  }
+}

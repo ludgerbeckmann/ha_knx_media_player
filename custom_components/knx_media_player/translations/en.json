@@ -1,0 +1,201 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "KNX Media Player",
+        "description": "Choose the media player to control via KNX (e.g. Sonos or Music Assistant). You set the group addresses afterwards in the options.",
+        "data": {
+          "player": "Media player",
+          "name": "Name (optional)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This media player is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "KNX Media Player",
+        "description": "All settings on one page. Empty group addresses are not used.",
+        "sections": {
+          "player_settings": {
+            "name": "Media player",
+            "description": "Limits and behaviour for {player}.",
+            "data": {
+              "max_volume": "Volume limit",
+              "volume_step": "Volume step",
+              "stop_instead_of_pause": "Stop instead of pause"
+            },
+            "data_description": {
+              "max_volume": "Highest volume that can be set via KNX.",
+              "volume_step": "Step for “volume up/down” and relative dimming.",
+              "stop_instead_of_pause": "“Pause” stops playback instead (e.g. for radio streams)."
+            }
+          },
+          "playback": {
+            "name": "Playback",
+            "description": "Group addresses for control. Empty fields are not used.",
+            "data": {
+              "addr_play_pause": "Play/pause switch (1 bit)",
+              "addr_next_prev": "Next/previous track (1 bit)",
+              "addr_stop": "Stop (1 bit)",
+              "addr_toggle": "Play/pause button (1 bit)"
+            },
+            "data_description": {
+              "addr_play_pause": "1 = play, 0 = pause.",
+              "addr_next_prev": "1 = next, 0 = previous track.",
+              "addr_stop": "1 = stop.",
+              "addr_toggle": "1 = toggle between play and pause. 0 is ignored."
+            }
+          },
+          "start": {
+            "name": "Playback start",
+            "description": "Applies when a play command starts a player that is not playing, so an old loud volume is never resumed. Empty = no change. Pausing and already running playback are not affected.",
+            "data": {
+              "start_volume": "Volume at start",
+              "start_source": "Source at start"
+            },
+            "data_description": {
+              "start_volume": "Set before starting, capped by the volume limit.",
+              "start_source": "Plays this source (e.g. a Sonos favorite) instead of just resuming."
+            }
+          },
+          "volume": {
+            "name": "Volume",
+            "description": "Group addresses for volume.",
+            "data": {
+              "addr_volume": "Absolute volume (5.001)",
+              "addr_volume_step": "Volume up/down (1 bit)",
+              "addr_volume_dim": "Relative dimming (3.007)",
+              "addr_mute": "Mute (1 bit)"
+            },
+            "data_description": {
+              "addr_volume": "0–100 %, capped by the volume limit.",
+              "addr_volume_step": "1 = one step louder, 0 = one step quieter.",
+              "addr_volume_dim": "One step per telegram, step code 0 = stop.",
+              "addr_mute": "1 = muted, 0 = unmuted."
+            }
+          },
+          "status_play": {
+            "name": "Feedback: playback",
+            "description": "Group addresses that receive whether the player is playing or paused (also as answer to read telegrams).",
+            "data": {
+              "status_playing": "Playing (1 bit)",
+              "status_paused": "Paused (1 bit)"
+            }
+          },
+          "status_level": {
+            "name": "Feedback: volume",
+            "description": "Group addresses for volume and mute.",
+            "data": {
+              "status_volume": "Volume (5.001)",
+              "status_muted": "Muted (1 bit)"
+            }
+          },
+          "status_text": {
+            "name": "Feedback: text",
+            "description": "Text addresses (DPT 16.001, 14 characters) for the current playback, e.g. for a display.",
+            "data": {
+              "status_title": "Title",
+              "status_artist": "Artist",
+              "status_album": "Album",
+              "status_source": "Source",
+              "idle_text": "Text when idle"
+            },
+            "data_description": {
+              "idle_text": "Sent while the player is not playing. Empty = empty text."
+            }
+          },
+          "scenes": {
+            "name": "Scenes",
+            "description": "Scenes 1 to 5 are in the following sections.",
+            "data": {
+              "addr_scene": "Scene address (17.001)"
+            },
+            "data_description": {
+              "addr_scene": "Scene number 1 to 5 starts the scene with that number."
+            }
+          },
+          "scene_1": {
+            "name": "Scene 1",
+            "description": "Runs on scene number 1 or via its own 1-bit address (1 = start, 0 = pause).",
+            "data": {
+              "scene_1_source": "Source (e.g. Sonos favorite)",
+              "scene_1_volume": "Volume",
+              "scene_1_address": "1-bit address"
+            },
+            "data_description": {
+              "scene_1_source": "Pick from the player's sources or type the name."
+            }
+          },
+          "scene_2": {
+            "name": "Scene 2",
+            "description": "Runs on scene number 2 or via its own 1-bit address (1 = start, 0 = pause).",
+            "data": {
+              "scene_2_source": "Source (e.g. Sonos favorite)",
+              "scene_2_volume": "Volume",
+              "scene_2_address": "1-bit address"
+            },
+            "data_description": {
+              "scene_2_source": "Pick from the player's sources or type the name."
+            }
+          },
+          "scene_3": {
+            "name": "Scene 3",
+            "description": "Runs on scene number 3 or via its own 1-bit address (1 = start, 0 = pause).",
+            "data": {
+              "scene_3_source": "Source (e.g. Sonos favorite)",
+              "scene_3_volume": "Volume",
+              "scene_3_address": "1-bit address"
+            },
+            "data_description": {
+              "scene_3_source": "Pick from the player's sources or type the name."
+            }
+          },
+          "scene_4": {
+            "name": "Scene 4",
+            "description": "Runs on scene number 4 or via its own 1-bit address (1 = start, 0 = pause).",
+            "data": {
+              "scene_4_source": "Source (e.g. Sonos favorite)",
+              "scene_4_volume": "Volume",
+              "scene_4_address": "1-bit address"
+            },
+            "data_description": {
+              "scene_4_source": "Pick from the player's sources or type the name."
+            }
+          },
+          "scene_5": {
+            "name": "Scene 5",
+            "description": "Runs on scene number 5 or via its own 1-bit address (1 = start, 0 = pause).",
+            "data": {
+              "scene_5_source": "Source (e.g. Sonos favorite)",
+              "scene_5_volume": "Volume",
+              "scene_5_address": "1-bit address"
+            },
+            "data_description": {
+              "scene_5_source": "Pick from the player's sources or type the name."
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "invalid_address": "At least one group address is invalid (expected e.g. 1/2/3).",
+      "scene_no_trigger": "A scene with a source or volume needs the scene address or its own 1-bit address."
+    }
+  },
+  "entity": {
+    "switch": {
+      "active": {
+        "name": "KNX control active"
+      }
+    },
+    "sensor": {
+      "last_command": {
+        "name": "Last KNX command"
+      }
+    }
+  }
+}
