@@ -410,3 +410,122 @@ async def test_reconfigure_rename_only(hass: HomeAssistant) -> None:
     )
     await hass.async_block_till_done()
     assert entry.title == "Wohnzimmer neu" and entry.data == {"player": PLAYER}
+
+
+# --- Felder je Player-Typ, Bereich ----------------------------------------------------
+
+
+def _register_player(hass, platform, object_id="living_room"):
+    from homeassistant.helpers import entity_registry as er
+
+    return er.async_get(hass).async_get_or_create(
+        "media_player", platform, f"{platform}-{object_id}", suggested_object_id=object_id
+    )
+
+
+def _fields(schema):
+    return {
+        str(sec): {str(f) for f in marker.schema.schema}
+        for sec, marker in schema.schema.items()
+    }
+
+
+async def test_fields_follow_player_kind(hass: HomeAssistant) -> None:
+    from custom_components.knx_media_player.config_flow import _options_schema
+
+    sonos = _fields(_options_schema({}, [], [], "sonos"))
+    assert "start_source" in sonos["start"] and "start_media" not in sonos["start"]
+    assert "start_media_type" not in sonos["start"]
+    assert "scene_1_source" in sonos["scene_1"] and "scene_1_media" not in sonos["scene_1"]
+
+    ma = _fields(_options_schema({}, [], [], "music_assistant"))
+    assert "start_source" not in ma["start"] and {"start_media", "start_media_type"} <= ma["start"]
+    assert "scene_2_source" not in ma["scene_2"] and "scene_2_media" in ma["scene_2"]
+
+    other = _fields(_options_schema({}, [], [], None))
+    assert {"start_source", "start_media"} <= other["start"]
+    assert {"scene_3_source", "scene_3_media"} <= other["scene_3"]
+
+
+async def test_options_flow_hides_fields_for_sonos(hass: HomeAssistant) -> None:
+    _register_player(hass, "sonos")
+    entry, _ = await _setup(hass, addr_scene="3/0/1", scene_1_source="Jazz")
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert "start_media" not in _fields(result["data_schema"])["start"]
+    assert "scene_1_media" not in _fields(result["data_schema"])["scene_1"]
+    done = await hass.config_entries.options.async_configure(
+        result["flow_id"], page(addr_scene="3/0/1", scene_1_source="Jazz", start_source="Radio")
+    )
+    assert done["type"] is FlowResultType.CREATE_ENTRY
+    assert done["data"]["start_source"] == "Radio"
+
+
+async def test_reconfigure_drops_unfitting_fields(hass: HomeAssistant) -> None:
+    _register_player(hass, "sonos")
+    entry, _ = await _setup(
+        hass, addr_scene="3/0/1", start_source="Jazz", scene_1_source="Radio",
+        scene_2_media="library://playlist/7", start_media="x", max_volume=70,
+    )
+    _register_player(hass, "music_assistant", "kitchen")
+    hass.states.async_set("media_player.kitchen", "idle", {})
+
+    result = await entry.start_reconfigure_flow(hass)
+    await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"player": "media_player.kitchen"}
+    )
+    await hass.async_block_till_done()
+    # Music Assistant: Quellen entfallen, Medien und alles andere bleibt
+    assert "start_source" not in entry.options and "scene_1_source" not in entry.options
+    assert entry.options["scene_2_media"] == "library://playlist/7"
+    assert entry.options["start_media"] == "x" and entry.options["max_volume"] == 70
+
+
+async def test_device_gets_area_of_player(hass: HomeAssistant) -> None:
+    from homeassistant.helpers import area_registry as ar
+    from homeassistant.helpers import device_registry as dr
+    from homeassistant.helpers import entity_registry as er
+
+    area = ar.async_get(hass).async_create("Wohnzimmer")
+    player = _register_player(hass, "sonos")
+    er.async_get(hass).async_update_entity(player.entity_id, area_id=area.id)
+    entry, _ = await _setup(hass)
+    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    assert device.area_id == area.id
+
+    # später selbst geändert: bleibt nach dem Neuladen unverändert
+    other = ar.async_get(hass).async_create("Küche")
+    dr.async_get(hass).async_update_device(device.id, area_id=other.id)
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert dr.async_get(hass).async_get(device.id).area_id == other.id
+
+
+async def test_device_area_from_player_device(hass: HomeAssistant) -> None:
+    from homeassistant.helpers import area_registry as ar
+    from homeassistant.helpers import device_registry as dr
+    from homeassistant.helpers import entity_registry as er
+    from pytest_homeassistant_custom_component.common import MockConfigEntry as MCE
+
+    area = ar.async_get(hass).async_create("Büro")
+    host = MCE(domain="sonos", title="Sonos")
+    host.add_to_hass(hass)
+    sonos_device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=host.entry_id, identifiers={("sonos", "x")}
+    )
+    dr.async_get(hass).async_update_device(sonos_device.id, area_id=area.id)
+    player = er.async_get(hass).async_get_or_create(
+        "media_player", "sonos", "u1", suggested_object_id="living_room",
+        device_id=sonos_device.id, config_entry=host,
+    )
+    assert player.area_id is None  # Bereich nur am Gerät
+    entry, _ = await _setup(hass)
+    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    assert device.area_id == area.id
+
+
+async def test_device_without_player_area_has_none(hass: HomeAssistant) -> None:
+    from homeassistant.helpers import device_registry as dr
+
+    entry, _ = await _setup(hass)
+    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    assert device.area_id is None

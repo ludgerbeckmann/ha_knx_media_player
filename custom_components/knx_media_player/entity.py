@@ -9,6 +9,7 @@ from homeassistant.helpers.entity import Entity
 
 from .const import DOMAIN, signal_update
 from .controller import KnxMediaPlayerController
+from .helpers import player_area_name
 
 
 class KnxMediaPlayerEntity(Entity):
@@ -25,6 +26,8 @@ class KnxMediaPlayerEntity(Entity):
             name=entry.title,
             manufacturer="KNX Media Player",
             model=controller.model,
+            # nur beim Anlegen des Geräts wirksam: Bereich des Media Players vorbelegen
+            suggested_area=player_area_name(controller.hass, controller.player),
         )
 
     async def async_added_to_hass(self) -> None:

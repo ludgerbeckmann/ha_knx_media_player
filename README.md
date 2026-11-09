@@ -49,7 +49,9 @@ Voraussetzungen sind Home Assistant 2025.3 oder neuer, die eingerichtete
 [KNX-Integration](https://www.home-assistant.io/integrations/knx/) und ein Media Player in Home Assistant.
 
 **Pro Media Player gibt es einen Eintrag**; für weitere Lautsprecher den Vorgang wiederholen. Der Name ist
-optional (leer = Name des Media Players).
+optional (leer = Name des Media Players). Das neue Gerät bekommt beim Anlegen den **Bereich** des Media Players
+(der Entität, sonst ihres Geräts); später änderst du ihn wie bei jedem Gerät selbst, die Integration setzt ihn nicht
+wieder zurück.
 
 **Media Player wechseln:** Am Eintrag über das Menü (⋮) *Neu konfigurieren* einen anderen Media Player (z. B. von
 Sonos zu Music Assistant) oder einen anderen Namen wählen. Alle Gruppenadressen und Einstellungen bleiben erhalten;
@@ -102,6 +104,10 @@ mit Quelle, Medium oder Lautstärke braucht die Szenenadresse oder eine eigene 1
   dessen Player keine Favoriten als Quellen anbieten. Der Typ (Playlist, Album, Interpret, Titel, Radio) ist
   optional; leer = automatisch.
 - Sind Quelle und Medium gesetzt, wird nur die Quelle verwendet.
+- **Der Dialog zeigt nur die passenden Felder:** Bei einem **Sonos**-Player gibt es nur die *Quelle* (Favoriten und
+  Playlists aus der Quellenliste des Players), bei **Music Assistant** nur *Medium* und *Typ*. Bei jedem anderen Player
+  stehen beide zur Wahl. Erkannt wird das an der Integration, die den Media Player bereitstellt. Beim Wechsel des
+  Players über *Neu konfigurieren* werden gespeicherte Felder entfernt, die zum neuen Typ nicht passen.
 
 ## Rückmeldungen (Media Player → KNX)
 
