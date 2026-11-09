@@ -63,7 +63,8 @@ SECTION_STATUS_LEVEL = "status_level"
 SECTION_STATUS_TEXT = "status_text"
 SECTION_SCENES = "scenes"
 
-_PLAYBACK_FIELDS = [CONF_ADDR_PLAY_PAUSE, CONF_ADDR_NEXT_PREV, CONF_ADDR_STOP, CONF_ADDR_TOGGLE]
+# „Play/Pause Taster“ steht im Dialog ganz oben
+_PLAYBACK_FIELDS = [CONF_ADDR_TOGGLE, CONF_ADDR_PLAY_PAUSE, CONF_ADDR_NEXT_PREV, CONF_ADDR_STOP]
 _VOLUME_FIELDS = [CONF_ADDR_VOLUME, CONF_ADDR_VOLUME_STEP, CONF_ADDR_VOLUME_DIM, CONF_ADDR_MUTE]
 _STATUS_PLAY_FIELDS = [CONF_STATUS_PLAYING, CONF_STATUS_PAUSED]
 _STATUS_LEVEL_FIELDS = [CONF_STATUS_VOLUME, CONF_STATUS_MUTED]
@@ -286,6 +287,39 @@ class KnxMediaPlayerConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Anderen Media Player (und/oder Namen) wählen; Adressen und Einstellungen bleiben erhalten."""
+        entry = self._get_reconfigure_entry()
+        if user_input is not None:
+            player = user_input[CONF_PLAYER]
+            if any(
+                other.entry_id != entry.entry_id and other.unique_id == player
+                for other in self._async_current_entries(include_ignore=False)
+            ):
+                return self.async_abort(reason="already_configured")
+            state = self.hass.states.get(player)
+            name = (user_input.get(CONF_NAME) or "").strip() or (
+                state.name if state else player
+            )
+            # Der Update-Listener lädt den Eintrag bei einer Änderung neu.
+            self.hass.config_entries.async_update_entry(
+                entry, title=name, unique_id=player, data={**entry.data, CONF_PLAYER: player}
+            )
+            return self.async_abort(reason="reconfigure_successful")
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_PLAYER, description={"suggested_value": entry.data[CONF_PLAYER]}
+                    ): _PLAYER_SELECTOR,
+                    vol.Optional(CONF_NAME, description={"suggested_value": entry.title}): str,
+                }
+            ),
         )
 
     @staticmethod
