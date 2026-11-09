@@ -47,6 +47,7 @@ from .const import (
     scene_key,
 )
 from .knx_codec import is_valid_ga
+from .helpers import KIND_MUSIC_ASSISTANT, KIND_SONOS, drop_unused_fields, player_kind
 from .knx_project import address_label, async_project_addresses
 
 _PLAYER_SELECTOR = selector.EntitySelector(
@@ -139,9 +140,17 @@ def _address(
 
 
 def _options_schema(
-    defaults: dict[str, Any], sources: list[str], project: list[dict[str, Any]]
+    defaults: dict[str, Any],
+    sources: list[str],
+    project: list[dict[str, Any]],
+    kind: str | None = None,
 ) -> vol.Schema:
-    """Die Optionsseite: Abschnitte Grenzen, Wiedergabe, Start, Lautstärke, Rückmeldungen, Szenen."""
+    """Die Optionsseite: Abschnitte Grenzen, Wiedergabe, Start, Lautstärke, Rückmeldungen, Szenen.
+
+    `kind` blendet nicht passende Felder aus: Sonos hat nur „Quelle“ (Favoriten),
+    Music Assistant nur „Medium“ samt Typ; sonst gibt es beides."""
+    show_source = kind != KIND_MUSIC_ASSISTANT
+    show_media = kind != KIND_SONOS
 
     def _section(fields: dict[Any, Any], collapsed: bool = True) -> Any:
         return section(vol.Schema(fields), {"collapsed": collapsed})
@@ -183,15 +192,28 @@ def _options_schema(
                 vol.Optional(
                     CONF_START_VOLUME, description=_suggest(CONF_START_VOLUME, defaults)
                 ): _number(0, 100),
-                vol.Optional(
-                    CONF_START_SOURCE, description=_suggest(CONF_START_SOURCE, defaults)
-                ): source,
-                vol.Optional(
-                    CONF_START_MEDIA, description=_suggest(CONF_START_MEDIA, defaults)
-                ): str,
-                vol.Optional(
-                    CONF_START_MEDIA_TYPE, description=_suggest(CONF_START_MEDIA_TYPE, defaults)
-                ): media_type,
+                **(
+                    {
+                        vol.Optional(
+                            CONF_START_SOURCE, description=_suggest(CONF_START_SOURCE, defaults)
+                        ): source
+                    }
+                    if show_source
+                    else {}
+                ),
+                **(
+                    {
+                        vol.Optional(
+                            CONF_START_MEDIA, description=_suggest(CONF_START_MEDIA, defaults)
+                        ): str,
+                        vol.Optional(
+                            CONF_START_MEDIA_TYPE,
+                            description=_suggest(CONF_START_MEDIA_TYPE, defaults),
+                        ): media_type,
+                    }
+                    if show_media
+                    else {}
+                ),
             }
         ),
         vol.Required(SECTION_VOLUME): _section(_addresses(_VOLUME_FIELDS)),
@@ -211,9 +233,19 @@ def _options_schema(
         )
         sections[vol.Required(f"scene_{number}")] = _section(
             {
-                vol.Optional(src_key, description=_suggest(src_key, defaults)): source,
-                vol.Optional(media_key, description=_suggest(media_key, defaults)): str,
-                vol.Optional(type_key, description=_suggest(type_key, defaults)): media_type,
+                **(
+                    {vol.Optional(src_key, description=_suggest(src_key, defaults)): source}
+                    if show_source
+                    else {}
+                ),
+                **(
+                    {
+                        vol.Optional(media_key, description=_suggest(media_key, defaults)): str,
+                        vol.Optional(type_key, description=_suggest(type_key, defaults)): media_type,
+                    }
+                    if show_media
+                    else {}
+                ),
                 vol.Optional(vol_key, description=_suggest(vol_key, defaults)): _number(0, 100),
                 **_addresses([addr_key]),
             }
@@ -305,9 +337,15 @@ class KnxMediaPlayerConfigFlow(ConfigFlow, domain=DOMAIN):
             name = (user_input.get(CONF_NAME) or "").strip() or (
                 state.name if state else player
             )
-            # Der Update-Listener lädt den Eintrag bei einer Änderung neu.
+            # Passt der neue Player-Typ nicht zu gespeicherten Quellen/Medien, werden sie entfernt
+            # (eine alte Sonos-Quelle hätte sonst Vorrang vor dem Medium). Der Update-Listener
+            # lädt den Eintrag bei einer Änderung neu.
             self.hass.config_entries.async_update_entry(
-                entry, title=name, unique_id=player, data={**entry.data, CONF_PLAYER: player}
+                entry,
+                title=name,
+                unique_id=player,
+                data={**entry.data, CONF_PLAYER: player},
+                options=drop_unused_fields(dict(entry.options), player_kind(self.hass, player)),
             )
             return self.async_abort(reason="reconfigure_successful")
         return self.async_show_form(
@@ -346,7 +384,10 @@ class KnxMediaPlayerOptionsFlow(OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=_options_schema(
-                defaults, sources, await async_project_addresses(self.hass)
+                defaults,
+                sources,
+                await async_project_addresses(self.hass),
+                player_kind(self.hass, entry.data[CONF_PLAYER]),
             ),
             errors=errors,
             description_placeholders={"player": entry.data[CONF_PLAYER]},
