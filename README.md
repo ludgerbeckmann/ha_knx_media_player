@@ -1,10 +1,6 @@
-# KNX Media Player
-
 [![Validate](https://github.com/ludgerbeckmann/ha_knx_media_player/actions/workflows/validate.yml/badge.svg)](https://github.com/ludgerbeckmann/ha_knx_media_player/actions/workflows/validate.yml)
 [![Tests](https://github.com/ludgerbeckmann/ha_knx_media_player/actions/workflows/tests.yml/badge.svg)](https://github.com/ludgerbeckmann/ha_knx_media_player/actions/workflows/tests.yml)
-[![Release](https://img.shields.io/github/v/release/ludgerbeckmann/ha_knx_media_player)](https://github.com/ludgerbeckmann/ha_knx_media_player/releases)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
-![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.3%2B-blue.svg)
 
 Eine Custom Integration, mit der sich **Media Player über KNX steuern** lassen: Play, Pause, Stopp, Vor, Zurück,
 Lautstärke und mehr. Der aktuelle Zustand wird zurück auf den Bus gemeldet. Jeder Media Player ist ein **eigener
