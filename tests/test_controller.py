@@ -423,6 +423,14 @@ def _register_player(hass, platform, object_id="living_room"):
     )
 
 
+def _device_of(hass, entry):
+    """Das Gerät des Eintrags (ohne das in neuem Home Assistant fehlerhafte `async_get_device`)."""
+    from homeassistant.helpers import device_registry as dr
+
+    devices = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
+    return devices[0] if devices else None
+
+
 def _fields(schema):
     return {
         str(sec): {str(f) for f in marker.schema.schema}
@@ -489,7 +497,7 @@ async def test_device_gets_area_of_player(hass: HomeAssistant) -> None:
     player = _register_player(hass, "sonos")
     er.async_get(hass).async_update_entity(player.entity_id, area_id=area.id)
     entry, _ = await _setup(hass)
-    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    device = _device_of(hass, entry)
     assert device.area_id == area.id
 
     # später selbst geändert: bleibt nach dem Neuladen unverändert
@@ -519,7 +527,7 @@ async def test_device_area_from_player_device(hass: HomeAssistant) -> None:
     )
     assert player.area_id is None  # Bereich nur am Gerät
     entry, _ = await _setup(hass)
-    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    device = _device_of(hass, entry)
     assert device.area_id == area.id
 
 
@@ -527,5 +535,5 @@ async def test_device_without_player_area_has_none(hass: HomeAssistant) -> None:
     from homeassistant.helpers import device_registry as dr
 
     entry, _ = await _setup(hass)
-    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    device = _device_of(hass, entry)
     assert device.area_id is None
