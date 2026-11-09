@@ -15,7 +15,8 @@ und ohne Hub/Untereinträge, Profile oder ältere Listen.
   Rückmeldungen. Eigene Rückmeldungen (`direction != "Incoming"`) werden nie als Befehl gewertet. Die Adressanmeldung wird
   alle 5 Minuten und nach `event_knx_reloaded` wiederholt. Zustand (`enabled`, `last_command`) liegt in einem `Store`.
 - `helpers.py`: `player_kind()` (Sonos/Music Assistant über die Plattform der Entität im Entity-Registry), `player_area_name()` (Bereich
-  der Entität, sonst ihres Geräts; wird als `suggested_area` nur beim Anlegen des Geräts genutzt), `drop_unused_fields()`.
+  der Entität, sonst ihres Geräts; wird als `suggested_area` nur beim Anlegen des Geräts genutzt), `drop_unused_fields()`, `async_library_options()` (Playlists und Radiosender des Music-Assistant-Players über `async_browse_media`
+  des Entity-Objekts, nur lesend, 10 s Zeitlimit, bei Fehlern `[]` → Textfeld; im Options-Flow nur bei Music Assistant).
   Der Options-Flow blendet je Typ Quelle (Sonos) oder Medium/Typ (Music Assistant) aus; bei „Neu konfigurieren“ werden unpassende Felder entfernt.
 - `knx_codec.py`: reine Funktionen (Gruppenadressen normalisieren, DPT 1/3/5/16/17 dekodieren) – ohne HA-Abhängigkeit.
 - `knx_project.py`: liest die Gruppenadressen des importierten ETS-Projekts nur zur Auswahl im Dialog.

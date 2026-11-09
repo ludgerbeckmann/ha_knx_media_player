@@ -103,6 +103,11 @@ mit Quelle, Medium oder Lautstärke braucht die Szenenadresse oder eine eigene 1
   Radiosenders, z. B. `library://playlist/7` oder `Radio Paradise`. Das ist der Weg für **Music Assistant**,
   dessen Player keine Favoriten als Quellen anbieten. Der Typ (Playlist, Album, Interpret, Titel, Radio) ist
   optional; leer = automatisch.
+- **Auswahlliste bei Music Assistant:** „Medium“ bietet die **Playlists und Radiosender** deiner Music-Assistant-Bibliothek
+  zur Auswahl an („Playlist · Name“, „Radiosender · Name“); gespeichert wird die Adresse (z. B. `library://playlist/399`).
+  Eigene Eingaben (Alben, Interpreten, Podcasts, Adressen von Spotify) sind weiter möglich. Die Liste wird beim Öffnen
+  des Dialogs nur gelesen, höchstens 500 Einträge je Art. Ist der Player nicht erreichbar oder dauert die Abfrage
+  länger als etwa 10 Sekunden, bleibt „Medium“ ein Textfeld.
 - Sind Quelle und Medium gesetzt, wird nur die Quelle verwendet.
 - **Der Dialog zeigt nur die passenden Felder:** Bei einem **Sonos**-Player gibt es nur die *Quelle* (Favoriten und
   Playlists aus der Quellenliste des Players), bei **Music Assistant** nur *Medium* und *Typ*. Bei jedem anderen Player
