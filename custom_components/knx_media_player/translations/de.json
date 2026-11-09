@@ -8,10 +8,19 @@
           "player": "Media Player",
           "name": "Name (optional)"
         }
+      },
+      "reconfigure": {
+        "title": "Media Player ändern",
+        "description": "Wähle einen anderen Media Player (z. B. von Sonos zu Music Assistant) oder ändere den Namen. Alle Gruppenadressen und Einstellungen bleiben erhalten. Quellen und Medien, die nur auf dem alten Player existieren, solltest du danach in den Optionen prüfen.",
+        "data": {
+          "player": "Media Player",
+          "name": "Name (optional)"
+        }
       }
     },
     "abort": {
-      "already_configured": "Für diesen Media Player gibt es bereits einen Eintrag."
+      "already_configured": "Für diesen Media Player gibt es bereits einen Eintrag.",
+      "reconfigure_successful": "Der Eintrag wurde aktualisiert und neu geladen."
     }
   },
   "options": {
@@ -51,7 +60,7 @@
             }
           },
           "start": {
-            "name": "Start der Wiedergabe",
+            "name": "Wiedergabeoption",
             "description": "Gilt, wenn ein Play-Befehl einen Player startet, der nicht spielt. So wird nie eine alte hohe Lautstärke übernommen. Leer = keine Änderung. Pausieren und bereits laufende Wiedergabe bleiben unberührt.",
             "data": {
               "start_volume": "Lautstärke beim Start",

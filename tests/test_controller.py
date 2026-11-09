@@ -361,3 +361,52 @@ async def test_options_flow(hass: HomeAssistant) -> None:
     assert "addr_stop" not in data  # geleertes Feld entfällt
     await hass.async_block_till_done()
     assert entry.options == data
+
+
+async def test_toggle_is_first_playback_field(hass: HomeAssistant) -> None:
+    from custom_components.knx_media_player.config_flow import _options_schema
+
+    schema = _options_schema({}, [], [])
+    playback = next(m for k, m in schema.schema.items() if str(k) == "playback")
+    assert [str(f) for f in playback.schema.schema][0] == "addr_toggle"
+
+
+async def test_reconfigure_changes_player_and_keeps_options(hass: HomeAssistant) -> None:
+    entry, m = await _setup(hass, addr_stop="1/0/3", max_volume=60)
+    other = "media_player.kitchen"
+    hass.states.async_set(other, "paused", {"volume_level": 0.5, "friendly_name": "Küche"})
+
+    result = await entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.FORM and result["step_id"] == "reconfigure"
+    done = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"player": other, "name": ""}
+    )
+    assert done["type"] is FlowResultType.ABORT and done["reason"] == "reconfigure_successful"
+    await hass.async_block_till_done()
+
+    assert entry.data == {"player": other} and entry.unique_id == other
+    assert entry.title == "Küche"  # leerer Name: Name des Media Players
+    assert entry.options == {"addr_stop": "1/0/3", "max_volume": 60}
+    # der Eintrag steuert jetzt den neuen Player
+    await _telegram(hass, "1/0/3", 1)
+    assert m["media_stop"][-1].data["entity_id"] == other
+
+
+async def test_reconfigure_rejects_player_of_other_entry(hass: HomeAssistant) -> None:
+    entry, _ = await _setup(hass)
+    other = "media_player.kitchen"
+    MockConfigEntry(domain=DOMAIN, title="Küche", data={"player": other}, unique_id=other).add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+    done = await hass.config_entries.flow.async_configure(result["flow_id"], {"player": other})
+    assert done["type"] is FlowResultType.ABORT and done["reason"] == "already_configured"
+    assert entry.data == {"player": PLAYER}
+
+
+async def test_reconfigure_rename_only(hass: HomeAssistant) -> None:
+    entry, _ = await _setup(hass, addr_stop="1/0/3")
+    result = await entry.start_reconfigure_flow(hass)
+    await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"player": PLAYER, "name": " Wohnzimmer neu "}
+    )
+    await hass.async_block_till_done()
+    assert entry.title == "Wohnzimmer neu" and entry.data == {"player": PLAYER}

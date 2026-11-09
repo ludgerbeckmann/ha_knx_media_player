@@ -8,10 +8,19 @@
           "player": "Media player",
           "name": "Name (optional)"
         }
+      },
+      "reconfigure": {
+        "title": "Change media player",
+        "description": "Choose another media player (e.g. from Sonos to Music Assistant) or change the name. All group addresses and settings are kept. Check sources and media that only existed on the old player in the options afterwards.",
+        "data": {
+          "player": "Media player",
+          "name": "Name (optional)"
+        }
       }
     },
     "abort": {
-      "already_configured": "This media player is already set up."
+      "already_configured": "This media player is already set up.",
+      "reconfigure_successful": "The entry was updated and reloaded."
     }
   },
   "options": {
@@ -51,7 +60,7 @@
             }
           },
           "start": {
-            "name": "Playback start",
+            "name": "Playback option",
             "description": "Applies when a play command starts a player that is not playing, so an old loud volume is never resumed. Empty = no change. Pausing and already running playback are not affected.",
             "data": {
               "start_volume": "Volume at start",

@@ -26,7 +26,7 @@ auf Sonos beschränkt.
 | --- | --- |
 | [Befehle](#befehle-knx--media-player) | Play/Pause, Vor/Zurück, Stopp, Umschalten, Lautstärke absolut, Lauter/Leiser, Dimmen, Stumm |
 | [Szenen](#szenen-und-start-der-wiedergabe) | Szenen 1–5 setzen Lautstärke, Quelle (z. B. Sonos-Favorit) und/oder Medium (z. B. Music-Assistant-Playlist) |
-| [Start der Wiedergabe](#szenen-und-start-der-wiedergabe) | Startlautstärke und Startquelle/-medium, damit nie eine alte hohe Lautstärke übernommen wird |
+| [Wiedergabeoption](#szenen-und-start-der-wiedergabe) | Startlautstärke und Startquelle/-medium, damit nie eine alte hohe Lautstärke übernommen wird |
 | [Rückmeldungen](#rückmeldungen-media-player--knx) | Spielt/Pause, Lautstärke, Stumm, Titel, Interpret, Album und Quelle, auch als Antwort auf Lesetelegramme |
 | [Grenzen](#einstellungen-des-players) | Lautstärkegrenze, Lautstärkeschritt, „Stoppen statt Pause“ |
 
@@ -51,6 +51,11 @@ Voraussetzungen sind Home Assistant 2025.3 oder neuer, die eingerichtete
 **Pro Media Player gibt es einen Eintrag**; für weitere Lautsprecher den Vorgang wiederholen. Der Name ist
 optional (leer = Name des Media Players).
 
+**Media Player wechseln:** Am Eintrag über das Menü (⋮) *Neu konfigurieren* einen anderen Media Player (z. B. von
+Sonos zu Music Assistant) oder einen anderen Namen wählen. Alle Gruppenadressen und Einstellungen bleiben erhalten;
+Quellen und Medien, die nur auf dem alten Player existieren, danach in den Optionen prüfen. Ein Media Player kann
+nur zu einem Eintrag gehören.
+
 ## Bedienung der Einstellungen
 
 **Konfigurieren** am Eintrag öffnet **eine Seite** mit Abschnitten; nur „Media Player“ ist aufgeklappt, die übrigen
@@ -59,7 +64,7 @@ importiert, bieten die Adressfelder die passenden Gruppenadressen (nach Datentyp
 Eingabe ist weiter möglich.
 
 Nach dem Speichern wird der Eintrag neu geladen und die Adressen werden bei der KNX-Integration neu angemeldet.
-Die Seite prüft die Eingaben (ungültige Gruppenadresse, Szene ohne Auslöser).
+Im Abschnitt „Wiedergabe“ steht der „Play/Pause Taster“ ganz oben. Die Seite prüft die Eingaben (ungültige Gruppenadresse, Szene ohne Auslöser).
 
 ## Befehle (KNX → Media Player)
 
@@ -82,7 +87,7 @@ Die Seite prüft die Eingaben (ungültige Gruppenadresse, Szene ohne Auslöser).
 
 ## Szenen und Start der Wiedergabe
 
-**Start der Wiedergabe:** Startet ein Play-Befehl einen Player, der gerade nicht spielt, kann vorher eine
+**Wiedergabeoption** (Abschnitt im Dialog): Startet ein Play-Befehl einen Player, der gerade nicht spielt, kann vorher eine
 *Startlautstärke* gesetzt und eine *Startquelle* (z. B. ein Sonos-Favorit) oder ein *Startmedium*
 (z. B. eine Music-Assistant-Playlist) gewählt werden. So wird nie eine alte, hohe Lautstärke übernommen.
 Pausieren und bereits laufende Wiedergabe bleiben unberührt.
