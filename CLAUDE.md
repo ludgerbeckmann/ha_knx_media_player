@@ -45,3 +45,4 @@ und ohne Hub/Untereinträge, Profile oder ältere Listen.
   Schallwellen (Grün, Grau, Blau). Farben aus dem KNX-Logo (Grün `#0CB14B`, Grau `#8E979D`, Blau `#006BB6`), aber bewusst kein
   KNX-Logo oder -Schriftzug (Marke der KNX Association). **Das Design nicht ohne Rückfrage ändern.**
 - README im Aufbau von `ha_housekeeper`: Badges, Funktionen, Installation, Bedienung, Abschnitte mit Entitäten und Hinweisen.
+  **Ohne** H1-Titel sowie ohne Release- und Home-Assistant-Badge: HACS zeigt Titel, Version und die benötigte HA-Version selbst über der README an (sonst doppelt).
