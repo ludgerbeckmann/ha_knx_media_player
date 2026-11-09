@@ -47,7 +47,13 @@ from .const import (
     scene_key,
 )
 from .knx_codec import is_valid_ga
-from .helpers import KIND_MUSIC_ASSISTANT, KIND_SONOS, drop_unused_fields, player_kind
+from .helpers import (
+    KIND_MUSIC_ASSISTANT,
+    KIND_SONOS,
+    async_library_options,
+    drop_unused_fields,
+    player_kind,
+)
 from .knx_project import address_label, async_project_addresses
 
 _PLAYER_SELECTOR = selector.EntitySelector(
@@ -144,11 +150,14 @@ def _options_schema(
     sources: list[str],
     project: list[dict[str, Any]],
     kind: str | None = None,
+    library: list[dict[str, Any]] | None = None,
 ) -> vol.Schema:
     """Die Optionsseite: Abschnitte Grenzen, Wiedergabe, Start, Lautstärke, Rückmeldungen, Szenen.
 
     `kind` blendet nicht passende Felder aus: Sonos hat nur „Quelle“ (Favoriten),
-    Music Assistant nur „Medium“ samt Typ; sonst gibt es beides."""
+    Music Assistant nur „Medium“ samt Typ; sonst gibt es beides. Mit `library` (Playlists und
+    Radiosender des Music-Assistant-Players) ist „Medium“ eine Auswahl mit freier Eingabe,
+    sonst ein Textfeld."""
     show_source = kind != KIND_MUSIC_ASSISTANT
     show_media = kind != KIND_SONOS
 
@@ -163,6 +172,15 @@ def _options_schema(
             options=sources, custom_value=True, mode=selector.SelectSelectorMode.DROPDOWN
         )
     )
+    media: Any = str
+    if library:
+        media = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[selector.SelectOptionDict(**item) for item in library],
+                custom_value=True,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        )
     media_type = selector.SelectSelector(
         selector.SelectSelectorConfig(
             options=MEDIA_TYPES,
@@ -205,7 +223,7 @@ def _options_schema(
                     {
                         vol.Optional(
                             CONF_START_MEDIA, description=_suggest(CONF_START_MEDIA, defaults)
-                        ): str,
+                        ): media,
                         vol.Optional(
                             CONF_START_MEDIA_TYPE,
                             description=_suggest(CONF_START_MEDIA_TYPE, defaults),
@@ -240,7 +258,7 @@ def _options_schema(
                 ),
                 **(
                     {
-                        vol.Optional(media_key, description=_suggest(media_key, defaults)): str,
+                        vol.Optional(media_key, description=_suggest(media_key, defaults)): media,
                         vol.Optional(type_key, description=_suggest(type_key, defaults)): media_type,
                     }
                     if show_media
@@ -379,15 +397,18 @@ class KnxMediaPlayerOptionsFlow(OptionsFlow):
             if not errors:
                 return self.async_create_entry(data=clean_options(flat))
             defaults = flat
-        state = self.hass.states.get(entry.data[CONF_PLAYER])
+        player = entry.data[CONF_PLAYER]
+        state = self.hass.states.get(player)
         sources = sorted((state.attributes.get("source_list") or []) if state else [])
+        kind = player_kind(self.hass, player)
+        # Playlists und Radiosender nur bei Music Assistant (lesend, Rückfall: Textfeld)
+        library = (
+            await async_library_options(self.hass, player) if kind == KIND_MUSIC_ASSISTANT else None
+        )
         return self.async_show_form(
             step_id="init",
             data_schema=_options_schema(
-                defaults,
-                sources,
-                await async_project_addresses(self.hass),
-                player_kind(self.hass, entry.data[CONF_PLAYER]),
+                defaults, sources, await async_project_addresses(self.hass), kind, library
             ),
             errors=errors,
             description_placeholders={"player": entry.data[CONF_PLAYER]},

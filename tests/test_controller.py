@@ -537,3 +537,156 @@ async def test_device_without_player_area_has_none(hass: HomeAssistant) -> None:
     entry, _ = await _setup(hass)
     device = _device_of(hass, entry)
     assert device.area_id is None
+
+
+# --- Music-Assistant-Bibliothek als Auswahl --------------------------------------------
+
+
+def _browse(title, uri, can_play=True):
+    from homeassistant.components.media_player import BrowseMedia
+
+    return BrowseMedia(
+        media_class="playlist", media_content_id=uri, media_content_type="music",
+        title=title, can_play=can_play, can_expand=False,
+    )
+
+
+def _listing(*children):
+    from homeassistant.components.media_player import BrowseMedia
+
+    return BrowseMedia(
+        media_class="directory", media_content_id="x", media_content_type="music_assistant",
+        title="x", can_play=False, can_expand=True, children=list(children),
+    )
+
+
+async def _add_fake_player(hass, entity_id, browse):
+    from homeassistant.components.media_player import DATA_COMPONENT, MediaPlayerEntity
+    from homeassistant.setup import async_setup_component
+
+    assert await async_setup_component(hass, "media_player", {})
+
+    class Fake(MediaPlayerEntity):
+        _attr_should_poll = False
+
+        async def async_browse_media(self, media_content_type=None, media_content_id=None):
+            return await browse(media_content_type, media_content_id)
+
+    player = Fake()
+    player.hass = hass
+    player.entity_id = entity_id
+    await hass.data[DATA_COMPONENT].async_add_entities([player])
+    return player
+
+
+async def test_library_options_from_player(hass: HomeAssistant) -> None:
+    from custom_components.knx_media_player.helpers import async_library_options
+
+    calls = []
+
+    async def browse(content_type, content_id):
+        calls.append((content_type, content_id))
+        if content_id == "playlists":
+            return _listing(
+                _browse("Pop Rock Radio", "library://playlist/399"),
+                _browse("Gesperrt", "library://playlist/5", can_play=False),
+            )
+        return _listing(_browse("ffn", "library://radio/9"), _browse("Doppelt", "library://playlist/399"))
+
+    await _add_fake_player(hass, "media_player.buero", browse)
+    hass.config.language = "de"
+    options = await async_library_options(hass, "media_player.buero")
+    assert options == [
+        {"value": "library://playlist/399", "label": "Playlist · Pop Rock Radio"},
+        {"value": "library://radio/9", "label": "Radiosender · ffn"},
+    ]
+    assert calls == [("music_assistant", "playlists"), ("music_assistant", "radio")]
+    hass.config.language = "en"
+    assert (await async_library_options(hass, "media_player.buero"))[1]["label"] == "Radio station · ffn"
+
+
+async def test_library_options_fall_back_to_empty(hass: HomeAssistant) -> None:
+    from unittest.mock import patch
+
+    from custom_components.knx_media_player import helpers
+
+    # unbekannter Player, Media-Player-Komponente nicht geladen
+    assert await helpers.async_library_options(hass, "media_player.gibtsnicht") == []
+
+    async def broken(content_type, content_id):
+        raise RuntimeError("Music Assistant nicht erreichbar")
+
+    await _add_fake_player(hass, "media_player.kaputt", broken)
+    assert await helpers.async_library_options(hass, "media_player.kaputt") == []
+
+    async def slow(content_type, content_id):
+        import asyncio
+
+        await asyncio.sleep(5)
+
+    await _add_fake_player(hass, "media_player.langsam", slow)
+    with patch.object(helpers, "LIBRARY_TIMEOUT", 0.05):
+        assert await helpers.async_library_options(hass, "media_player.langsam") == []
+
+
+def _media_selector(result, section, field):
+    marker = next(m for k, m in result["data_schema"].schema.items() if str(k) == section)
+    return next(v for k, v in marker.schema.schema.items() if str(k) == field)
+
+
+async def test_options_flow_offers_library_for_music_assistant(hass: HomeAssistant) -> None:
+    from unittest.mock import patch
+
+    _register_player(hass, "music_assistant")
+    entry, _ = await _setup(hass, addr_scene="3/0/1")
+    library = [{"value": "library://playlist/399", "label": "Playlist · Pop Rock Radio"}]
+    with patch(
+        "custom_components.knx_media_player.config_flow.async_library_options",
+        return_value=library,
+    ):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+    for section, field in (("start", "start_media"), ("scene_2", "scene_2_media")):
+        selector_ = _media_selector(result, section, field)
+        config = selector_.config
+        assert config["options"] == library and config["custom_value"] is True
+    # Auswahl und freie Eingabe lassen sich speichern
+    done = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        page(addr_scene="3/0/1", start_media="library://playlist/399",
+             scene_2_media="spotify--x://album/1", scene_2_media_type="album"),
+    )
+    assert done["type"] is FlowResultType.CREATE_ENTRY
+    assert done["data"]["start_media"] == "library://playlist/399"
+    assert done["data"]["scene_2_media"] == "spotify--x://album/1"
+
+
+async def test_options_flow_text_field_without_library(hass: HomeAssistant) -> None:
+    from unittest.mock import patch
+
+    _register_player(hass, "music_assistant")
+    entry, _ = await _setup(hass)
+    with patch(
+        "custom_components.knx_media_player.config_flow.async_library_options", return_value=[]
+    ):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert _media_selector(result, "start", "start_media") is str
+
+
+async def test_library_is_only_read_for_music_assistant(hass: HomeAssistant) -> None:
+    from unittest.mock import patch
+
+    from homeassistant.helpers import entity_registry as er
+
+    for platform in ("sonos", None):
+        registered = er.async_get(hass).async_get(PLAYER)
+        if platform:
+            _register_player(hass, platform)
+        elif registered:  # zweiter Durchlauf: Player ohne bekannte Integration
+            er.async_get(hass).async_remove(PLAYER)
+        entry, _ = await _setup(hass)
+        with patch(
+            "custom_components.knx_media_player.config_flow.async_library_options"
+        ) as mocked:
+            await hass.config_entries.options.async_init(entry.entry_id)
+        mocked.assert_not_called()
+        await hass.config_entries.async_remove(entry.entry_id)
