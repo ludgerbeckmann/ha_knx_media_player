@@ -7,6 +7,7 @@ DOMAIN = "knx_media_player"
 # --- Eintrag (ein Eintrag je Media Player) ---
 CONF_NAME = "name"
 CONF_PLAYER = "player"
+CONF_AREA = "area"  # nur im Einrichtungsdialog: Bereich zum Eingrenzen der Media Player
 CONF_MAX_VOLUME = "max_volume"
 CONF_VOLUME_STEP = "volume_step"
 CONF_STOP_INSTEAD = "stop_instead_of_pause"

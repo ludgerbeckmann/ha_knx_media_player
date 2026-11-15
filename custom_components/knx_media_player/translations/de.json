@@ -3,10 +3,16 @@
     "step": {
       "user": {
         "title": "KNX Media Player",
-        "description": "Wähle den Media Player, der über KNX gesteuert werden soll (z. B. Sonos oder Music Assistant). Die Gruppenadressen legst du danach in den Optionen fest.",
+        "description": "Optional: Wähle einen Bereich, um die Auswahl der Media Player einzugrenzen. Leer lassen = alle Media Player.",
         "data": {
-          "player": "Media Player",
-          "name": "Name (optional)"
+          "area": "Bereich (optional)"
+        }
+      },
+      "player": {
+        "title": "KNX Media Player",
+        "description": "Wähle den Media Player, der über KNX gesteuert werden soll (z. B. Sonos oder Music Assistant). Die Gruppenadressen legst du danach in den Optionen fest. Der Name des Eintrags ist der Name des Media Players; ändern kannst du ihn über „Neu konfigurieren“.",
+        "data": {
+          "player": "Media Player"
         }
       },
       "reconfigure": {
@@ -17,6 +23,9 @@
           "name": "Name (optional)"
         }
       }
+    },
+    "error": {
+      "no_player_in_area": "In diesem Bereich gibt es keinen Media Player."
     },
     "abort": {
       "already_configured": "Für diesen Media Player gibt es bereits einen Eintrag.",

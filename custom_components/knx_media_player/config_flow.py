@@ -21,6 +21,7 @@ from .const import (
     CONF_ADDR_VOLUME,
     CONF_ADDR_VOLUME_DIM,
     CONF_ADDR_VOLUME_STEP,
+    CONF_AREA,
     CONF_IDLE_TEXT,
     CONF_MAX_VOLUME,
     CONF_NAME,
@@ -52,6 +53,7 @@ from .helpers import (
     KIND_SONOS,
     async_library_options,
     drop_unused_fields,
+    media_players_by_area,
     player_kind,
 )
 from .knx_project import address_label, async_project_addresses
@@ -70,8 +72,7 @@ SECTION_STATUS_LEVEL = "status_level"
 SECTION_STATUS_TEXT = "status_text"
 SECTION_SCENES = "scenes"
 
-# „Play/Pause Taster“ steht im Dialog ganz oben
-_PLAYBACK_FIELDS = [CONF_ADDR_TOGGLE, CONF_ADDR_PLAY_PAUSE, CONF_ADDR_NEXT_PREV, CONF_ADDR_STOP]
+_PLAYBACK_FIELDS = [CONF_ADDR_PLAY_PAUSE, CONF_ADDR_TOGGLE, CONF_ADDR_NEXT_PREV, CONF_ADDR_STOP]
 _VOLUME_FIELDS = [CONF_ADDR_VOLUME, CONF_ADDR_VOLUME_STEP, CONF_ADDR_VOLUME_DIM, CONF_ADDR_MUTE]
 _STATUS_PLAY_FIELDS = [CONF_STATUS_PLAYING, CONF_STATUS_PAUSED]
 _STATUS_LEVEL_FIELDS = [CONF_STATUS_VOLUME, CONF_STATUS_MUTED]
@@ -317,26 +318,61 @@ class KnxMediaPlayerConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    _area: str | None = None
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Schritt 1: Bereich (optional) zum Eingrenzen der Media Player.
+
+        Entfällt, wenn kein Bereich einen Media Player hat."""
+        by_area = media_players_by_area(self.hass)
+        if not by_area:
+            return await self.async_step_player()
         errors: dict[str, str] = {}
+        if user_input is not None:
+            area = user_input.get(CONF_AREA) or None
+            if area is None or area in by_area:
+                self._area = area
+                return await self.async_step_player()
+            errors["base"] = "no_player_in_area"
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_AREA): selector.AreaSelector(
+                        selector.AreaSelectorConfig(
+                            entity=[selector.EntityFilterSelectorConfig(domain="media_player")]
+                        )
+                    )
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_player(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Schritt 2: Media Player wählen (auf den Bereich eingegrenzt, falls einer gewählt wurde).
+
+        Der Name des Eintrags ist der Name des Media Players; ändern lässt er sich über
+        „Neu konfigurieren“."""
         if user_input is not None:
             player = user_input[CONF_PLAYER]
             await self.async_set_unique_id(player)
             self._abort_if_unique_id_configured()
             state = self.hass.states.get(player)
-            name = (user_input.get(CONF_NAME) or "").strip() or (
-                state.name if state else player
+            return self.async_create_entry(
+                title=state.name if state else player, data={CONF_PLAYER: player}
             )
-            return self.async_create_entry(title=name, data={CONF_PLAYER: player})
+        config: dict[str, Any] = {"domain": "media_player"}
+        if self._area and (players := media_players_by_area(self.hass).get(self._area)):
+            config["include_entities"] = players  # nur die Media Player dieses Bereichs
         return self.async_show_form(
-            step_id="user",
+            step_id="player",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_PLAYER): _PLAYER_SELECTOR,
-                    vol.Optional(CONF_NAME): str,
+                    vol.Required(CONF_PLAYER): selector.EntitySelector(
+                        selector.EntitySelectorConfig(**config)
+                    )
                 }
             ),
-            errors=errors,
         )
 
     async def async_step_reconfigure(

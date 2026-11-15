@@ -312,7 +312,9 @@ def page(**fields):
 async def test_config_flow(hass: HomeAssistant) -> None:
     hass.states.async_set(PLAYER, "idle", {"friendly_name": "Wohnzimmer"})
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
-    assert result["type"] is FlowResultType.FORM and result["step_id"] == "user"
+    # kein Bereich hat einen Media Player: Schritt „Bereich“ entfällt
+    assert result["type"] is FlowResultType.FORM and result["step_id"] == "player"
+    assert [str(f) for f in result["data_schema"].schema] == ["player"]  # kein Namensfeld
     created = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"player": PLAYER}
     )
@@ -325,12 +327,85 @@ async def test_config_flow(hass: HomeAssistant) -> None:
     assert dup["type"] is FlowResultType.ABORT and dup["reason"] == "already_configured"
 
 
-async def test_config_flow_custom_name(hass: HomeAssistant) -> None:
+async def test_config_flow_title_without_state(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    created = await hass.config_entries.flow.async_configure(result["flow_id"], {"player": PLAYER})
+    assert created["title"] == PLAYER  # ohne Zustand: Entity-ID
+
+
+def _area_setup(hass):
+    """Zwei Bereiche mit je einem Media Player, ein leerer Bereich, ein Player ohne Bereich."""
+    from homeassistant.helpers import area_registry as ar
+    from homeassistant.helpers import entity_registry as er
+
+    areas = ar.async_get(hass)
+    buero, kueche, keller = (areas.async_create(n) for n in ("Büro", "Küche", "Keller"))
+    ent = er.async_get(hass)
+    for name, area in (("buero", buero), ("kueche", kueche), ("ohne", None)):
+        entry = ent.async_get_or_create(
+            "media_player", "sonos", f"u-{name}", suggested_object_id=name
+        )
+        if area:
+            ent.async_update_entity(entry.entity_id, area_id=area.id)
+    return buero, kueche, keller
+
+
+def _player_selector(result):
+    return next(v for k, v in result["data_schema"].schema.items() if str(k) == "player")
+
+
+async def test_config_flow_area_narrows_players(hass: HomeAssistant) -> None:
+    buero, _, _ = _area_setup(hass)
+    hass.states.async_set("media_player.buero", "idle", {"friendly_name": "Büro"})
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    assert result["step_id"] == "user"
+    assert [str(f) for f in result["data_schema"].schema] == ["area"]  # optionales Feld
+    step2 = await hass.config_entries.flow.async_configure(result["flow_id"], {"area": buero.id})
+    assert step2["step_id"] == "player"
+    assert _player_selector(step2).config["include_entities"] == ["media_player.buero"]
     created = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {"player": PLAYER, "name": " Küche "}
+        step2["flow_id"], {"player": "media_player.buero"}
     )
-    assert created["title"] == "Küche"
+    assert created["type"] is FlowResultType.CREATE_ENTRY and created["title"] == "Büro"
+
+
+async def test_config_flow_without_area_offers_all_players(hass: HomeAssistant) -> None:
+    _area_setup(hass)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    step2 = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    assert step2["step_id"] == "player"
+    assert _player_selector(step2).config.get("include_entities") is None
+
+
+async def test_config_flow_area_without_players(hass: HomeAssistant) -> None:
+    _, _, keller = _area_setup(hass)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    bad = await hass.config_entries.flow.async_configure(result["flow_id"], {"area": keller.id})
+    assert bad["type"] is FlowResultType.FORM and bad["step_id"] == "user"
+    assert bad["errors"] == {"base": "no_player_in_area"}
+
+
+async def test_config_flow_area_of_player_device(hass: HomeAssistant) -> None:
+    """Bereich nur am Gerät des Players zählt ebenfalls."""
+    from homeassistant.helpers import area_registry as ar
+    from homeassistant.helpers import device_registry as dr
+    from homeassistant.helpers import entity_registry as er
+    from pytest_homeassistant_custom_component.common import MockConfigEntry as MCE
+
+    area = ar.async_get(hass).async_create("Bad")
+    host = MCE(domain="sonos", title="Sonos")
+    host.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=host.entry_id, identifiers={("sonos", "bad")}
+    )
+    dr.async_get(hass).async_update_device(device.id, area_id=area.id)
+    er.async_get(hass).async_get_or_create(
+        "media_player", "sonos", "u-bad", suggested_object_id="bad",
+        device_id=device.id, config_entry=host,
+    )
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    step2 = await hass.config_entries.flow.async_configure(result["flow_id"], {"area": area.id})
+    assert _player_selector(step2).config["include_entities"] == ["media_player.bad"]
 
 
 async def test_options_flow(hass: HomeAssistant) -> None:
@@ -363,12 +438,14 @@ async def test_options_flow(hass: HomeAssistant) -> None:
     assert entry.options == data
 
 
-async def test_toggle_is_first_playback_field(hass: HomeAssistant) -> None:
+async def test_playback_field_order(hass: HomeAssistant) -> None:
     from custom_components.knx_media_player.config_flow import _options_schema
 
     schema = _options_schema({}, [], [])
     playback = next(m for k, m in schema.schema.items() if str(k) == "playback")
-    assert [str(f) for f in playback.schema.schema][0] == "addr_toggle"
+    assert [str(f) for f in playback.schema.schema] == [
+        "addr_play_pause", "addr_toggle", "addr_next_prev", "addr_stop"
+    ]
 
 
 async def test_reconfigure_changes_player_and_keeps_options(hass: HomeAssistant) -> None:
