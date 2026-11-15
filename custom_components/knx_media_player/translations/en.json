@@ -3,10 +3,16 @@
     "step": {
       "user": {
         "title": "KNX Media Player",
-        "description": "Choose the media player to control via KNX (e.g. Sonos or Music Assistant). You set the group addresses afterwards in the options.",
+        "description": "Optional: choose an area to narrow down the media players. Leave empty = all media players.",
         "data": {
-          "player": "Media player",
-          "name": "Name (optional)"
+          "area": "Area (optional)"
+        }
+      },
+      "player": {
+        "title": "KNX Media Player",
+        "description": "Choose the media player to control via KNX (e.g. Sonos or Music Assistant). You set the group addresses afterwards in the options. The entry is named after the media player; you can change that via “Reconfigure”.",
+        "data": {
+          "player": "Media player"
         }
       },
       "reconfigure": {
@@ -17,6 +23,9 @@
           "name": "Name (optional)"
         }
       }
+    },
+    "error": {
+      "no_player_in_area": "There is no media player in this area."
     },
     "abort": {
       "already_configured": "This media player is already set up.",

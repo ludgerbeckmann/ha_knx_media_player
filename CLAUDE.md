@@ -20,7 +20,7 @@ und ohne Hub/Untereinträge, Profile oder ältere Listen.
   Der Options-Flow blendet je Typ Quelle (Sonos) oder Medium/Typ (Music Assistant) aus; bei „Neu konfigurieren“ werden unpassende Felder entfernt.
 - `knx_codec.py`: reine Funktionen (Gruppenadressen normalisieren, DPT 1/3/5/16/17 dekodieren) – ohne HA-Abhängigkeit.
 - `knx_project.py`: liest die Gruppenadressen des importierten ETS-Projekts nur zur Auswahl im Dialog.
-- `config_flow.py`: Einrichtung (Player + Name), `async_step_reconfigure` (Player/Name wechseln, Optionen bleiben, `unique_id` folgt dem Player, der Update-Listener lädt neu), Options-Flow mit Abschnitten (`section()`), Prüfung
+- `config_flow.py`: Einrichtung in zwei Schritten: `user` = optionaler Bereich (nur wenn ein Bereich Media Player hat, sonst übersprungen), `player` = Entitätsauswahl, auf die Media Player des Bereichs eingegrenzt (`include_entities`, nie `None` übergeben); **kein Namensfeld** beim Anlegen (sonst setzt die Oberfläche den Cursor dorthin), der Titel ist der Name des Players, ändern über „Neu konfigurieren“, `async_step_reconfigure` (Player/Name wechseln, Optionen bleiben, `unique_id` folgt dem Player, der Update-Listener lädt neu), Options-Flow mit Abschnitten (`section()`), Prüfung
   (`invalid_address`, `scene_no_trigger`), `clean_options()` entfernt leere Felder.
 - Entitäten: `switch.py` (KNX-Steuerung aktiv), `sensor.py` (letzter Befehl), Basis in `entity.py`
   (Spiegel des Controllers über ein Dispatcher-Signal).

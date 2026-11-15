@@ -37,6 +37,28 @@ MEDIA_KEYS = [
 ]
 
 
+def _entry_area_id(ent_reg, dev_reg, entry) -> str | None:
+    """Bereich der Entität, ersatzweise ihres Geräts."""
+    if entry.area_id is not None:
+        return entry.area_id
+    if entry.device_id:
+        device = dev_reg.async_get(entry.device_id)
+        return device.area_id if device else None
+    return None
+
+
+def media_players_by_area(hass: HomeAssistant) -> dict[str, list[str]]:
+    """Bereich -> Media Player (Entity-IDs, sortiert); nur Bereiche mit mindestens einem Media Player."""
+    ent_reg, dev_reg = er.async_get(hass), dr.async_get(hass)
+    result: dict[str, list[str]] = {}
+    for entry in ent_reg.entities.values():
+        if entry.domain != "media_player" or entry.disabled_by is not None:
+            continue
+        if (area_id := _entry_area_id(ent_reg, dev_reg, entry)) is not None:
+            result.setdefault(area_id, []).append(entry.entity_id)
+    return {area: sorted(players) for area, players in result.items()}
+
+
 def player_kind(hass: HomeAssistant, entity_id: str) -> str | None:
     """`sonos` oder `music_assistant`, wenn die Entität von dieser Integration stammt, sonst None."""
     entry = er.async_get(hass).async_get(entity_id)
