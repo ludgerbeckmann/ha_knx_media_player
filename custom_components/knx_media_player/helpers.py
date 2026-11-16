@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.loader import IntegrationNotFound, async_get_integration
 
 from .const import (
     CONF_START_MEDIA,
@@ -35,28 +36,6 @@ MEDIA_KEYS = [
     CONF_START_MEDIA_TYPE,
     *(scene_key(n, field) for n in range(1, SCENE_COUNT + 1) for field in ("media", "media_type")),
 ]
-
-
-def _entry_area_id(ent_reg, dev_reg, entry) -> str | None:
-    """Bereich der Entität, ersatzweise ihres Geräts."""
-    if entry.area_id is not None:
-        return entry.area_id
-    if entry.device_id:
-        device = dev_reg.async_get(entry.device_id)
-        return device.area_id if device else None
-    return None
-
-
-def media_players_by_area(hass: HomeAssistant) -> dict[str, list[str]]:
-    """Bereich -> Media Player (Entity-IDs, sortiert); nur Bereiche mit mindestens einem Media Player."""
-    ent_reg, dev_reg = er.async_get(hass), dr.async_get(hass)
-    result: dict[str, list[str]] = {}
-    for entry in ent_reg.entities.values():
-        if entry.domain != "media_player" or entry.disabled_by is not None:
-            continue
-        if (area_id := _entry_area_id(ent_reg, dev_reg, entry)) is not None:
-            result.setdefault(area_id, []).append(entry.entity_id)
-    return {area: sorted(players) for area, players in result.items()}
 
 
 def player_kind(hass: HomeAssistant, entity_id: str) -> str | None:
@@ -129,3 +108,28 @@ async def async_library_options(hass: HomeAssistant, entity_id: str) -> list[dic
         _LOGGER.debug("Bibliothek von %s nicht lesbar", entity_id, exc_info=True)
         return []
     return options
+
+
+async def player_integration_name(hass: HomeAssistant, entity_id: str) -> str | None:
+    """Anzeigename der Integration, die den Media Player bereitstellt (z. B. „Sonos“, „Music Assistant“)."""
+    entry = er.async_get(hass).async_get(entity_id)
+    if entry is None or not entry.platform:
+        return None
+    try:
+        return (await async_get_integration(hass, entry.platform)).name
+    except IntegrationNotFound:
+        return entry.platform
+
+
+async def describe_player(hass: HomeAssistant, entity_id: str) -> str:
+    """Kurzbeschreibung für Dialoge: „Büro · Music Assistant · Bereich Arbeitszimmer · media_player.buero“."""
+    german = (hass.config.language or "").startswith("de")
+    state = hass.states.get(entity_id)
+    parts = [state.name if state else entity_id]
+    if integration := await player_integration_name(hass, entity_id):
+        parts.append(integration)
+    if area := player_area_name(hass, entity_id):
+        parts.append(f"{'Bereich' if german else 'Area'} {area}")
+    if state:
+        parts.append(entity_id)
+    return " · ".join(parts)

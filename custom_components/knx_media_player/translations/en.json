@@ -3,17 +3,14 @@
     "step": {
       "user": {
         "title": "KNX Media Player",
-        "description": "Optional: choose an area to narrow down the media players. Leave empty = all media players.",
-        "data": {
-          "area": "Area (optional)"
-        }
-      },
-      "player": {
-        "title": "KNX Media Player",
-        "description": "Choose the media player to control via KNX (e.g. Sonos or Music Assistant). You set the group addresses afterwards in the options. The entry is named after the media player; you can change that via “Reconfigure”.",
+        "description": "Choose the media player to control via KNX (e.g. Sonos or Music Assistant). The search also finds areas and device names. Players that already have an entry are not listed. You set the group addresses afterwards in the options.",
         "data": {
           "player": "Media player"
         }
+      },
+      "confirm": {
+        "title": "Confirm media player",
+        "description": "Selected: {player_info}\n\nOK creates the entry. Wrong one? Close the window, nothing has been created yet. The entry is named after the media player; you can change that later via “Reconfigure”."
       },
       "reconfigure": {
         "title": "Change media player",
@@ -24,9 +21,6 @@
         }
       }
     },
-    "error": {
-      "no_player_in_area": "There is no media player in this area."
-    },
     "abort": {
       "already_configured": "This media player is already set up.",
       "reconfigure_successful": "The entry was updated and reloaded."
@@ -36,7 +30,7 @@
     "step": {
       "init": {
         "title": "KNX Media Player",
-        "description": "All settings on one page. Empty group addresses are not used.",
+        "description": "Media player: {player_info}\n\nAll settings on one page. Empty group addresses are not used.",
         "sections": {
           "player_settings": {
             "name": "Media player",

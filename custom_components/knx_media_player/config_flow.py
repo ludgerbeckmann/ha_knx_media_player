@@ -21,7 +21,6 @@ from .const import (
     CONF_ADDR_VOLUME,
     CONF_ADDR_VOLUME_DIM,
     CONF_ADDR_VOLUME_STEP,
-    CONF_AREA,
     CONF_IDLE_TEXT,
     CONF_MAX_VOLUME,
     CONF_NAME,
@@ -53,7 +52,7 @@ from .helpers import (
     KIND_SONOS,
     async_library_options,
     drop_unused_fields,
-    media_players_by_area,
+    describe_player,
     player_kind,
 )
 from .knx_project import address_label, async_project_addresses
@@ -318,54 +317,29 @@ class KnxMediaPlayerConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    _area: str | None = None
+    _player: str | None = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Schritt 1: Bereich (optional) zum Eingrenzen der Media Player.
+        """Schritt 1: Media Player wählen (die Suche der Oberfläche findet auch Bereiche).
 
-        Entfällt, wenn kein Bereich einen Media Player hat."""
-        by_area = media_players_by_area(self.hass)
-        if not by_area:
-            return await self.async_step_player()
-        errors: dict[str, str] = {}
+        Player, für die es schon einen Eintrag gibt, fehlen in der Liste. Es gibt kein
+        Namensfeld (die Oberfläche setzt den Cursor sonst dorthin); der Titel ist der Name
+        des Players, ändern über „Neu konfigurieren“."""
         if user_input is not None:
-            area = user_input.get(CONF_AREA) or None
-            if area is None or area in by_area:
-                self._area = area
-                return await self.async_step_player()
-            errors["base"] = "no_player_in_area"
+            self._player = user_input[CONF_PLAYER]
+            await self.async_set_unique_id(self._player)
+            self._abort_if_unique_id_configured()
+            return await self.async_step_confirm()
+        config: dict[str, Any] = {"domain": "media_player"}
+        configured = [
+            entry.unique_id
+            for entry in self._async_current_entries(include_ignore=False)
+            if entry.unique_id
+        ]
+        if configured:
+            config["exclude_entities"] = configured
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(CONF_AREA): selector.AreaSelector(
-                        selector.AreaSelectorConfig(
-                            entity=[selector.EntityFilterSelectorConfig(domain="media_player")]
-                        )
-                    )
-                }
-            ),
-            errors=errors,
-        )
-
-    async def async_step_player(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Schritt 2: Media Player wählen (auf den Bereich eingegrenzt, falls einer gewählt wurde).
-
-        Der Name des Eintrags ist der Name des Media Players; ändern lässt er sich über
-        „Neu konfigurieren“."""
-        if user_input is not None:
-            player = user_input[CONF_PLAYER]
-            await self.async_set_unique_id(player)
-            self._abort_if_unique_id_configured()
-            state = self.hass.states.get(player)
-            return self.async_create_entry(
-                title=state.name if state else player, data={CONF_PLAYER: player}
-            )
-        config: dict[str, Any] = {"domain": "media_player"}
-        if self._area and (players := media_players_by_area(self.hass).get(self._area)):
-            config["include_entities"] = players  # nur die Media Player dieses Bereichs
-        return self.async_show_form(
-            step_id="player",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_PLAYER): selector.EntitySelector(
@@ -373,6 +347,19 @@ class KnxMediaPlayerConfigFlow(ConfigFlow, domain=DOMAIN):
                     )
                 }
             ),
+        )
+
+    async def async_step_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Schritt 2: Auswahl bestätigen (Name, Integration, Bereich); erst jetzt wird angelegt."""
+        assert self._player is not None
+        if user_input is not None:
+            state = self.hass.states.get(self._player)
+            return self.async_create_entry(
+                title=state.name if state else self._player, data={CONF_PLAYER: self._player}
+            )
+        return self.async_show_form(
+            step_id="confirm",
+            description_placeholders={"player_info": await describe_player(self.hass, self._player)},
         )
 
     async def async_step_reconfigure(
@@ -412,6 +399,9 @@ class KnxMediaPlayerConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_NAME, description={"suggested_value": entry.title}): str,
                 }
             ),
+            description_placeholders={
+                "player_info": await describe_player(self.hass, entry.data[CONF_PLAYER])
+            },
         )
 
     @staticmethod
@@ -447,5 +437,8 @@ class KnxMediaPlayerOptionsFlow(OptionsFlow):
                 defaults, sources, await async_project_addresses(self.hass), kind, library
             ),
             errors=errors,
-            description_placeholders={"player": entry.data[CONF_PLAYER]},
+            description_placeholders={
+                "player": entry.data[CONF_PLAYER],
+                "player_info": await describe_player(self.hass, entry.data[CONF_PLAYER]),
+            },
         )
