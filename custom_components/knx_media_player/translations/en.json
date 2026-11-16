@@ -30,7 +30,7 @@
     "step": {
       "init": {
         "title": "KNX Media Player",
-        "description": "Media player: {player_info}\n\nAll settings on one page. Empty group addresses are not used.",
+        "description": "Media player: {player_info}\n\nSelected stations and media: {media_info}\n\nAll settings on one page. Empty group addresses are not used.",
         "sections": {
           "player_settings": {
             "name": "Media player",
@@ -67,12 +67,14 @@
             "description": "Applies when a play command starts a player that is not playing, so an old loud volume is never resumed. Empty = no change. Pausing and already running playback are not affected.",
             "data": {
               "start_volume": "Volume at start",
+              "start_station": "Station at start",
               "start_source": "Source at start",
               "start_media": "Media at start (Music Assistant)",
               "start_media_type": "Media type"
             },
             "data_description": {
               "start_volume": "Set before starting, capped by the volume limit.",
+              "start_station": "Fixed station list and, if set up, Radio Browser (local and popular). Takes precedence over source and media.",
               "start_source": "Plays this source (e.g. a Sonos favorite) instead of just resuming.",
               "start_media": "Name or URI of a playlist, album, station etc. Only used when no source is set.",
               "start_media_type": "Empty = automatic."
@@ -138,6 +140,7 @@
             "name": "Scene 1",
             "description": "Runs on scene number 1 or via its own 1-bit address (1 = start, 0 = pause).",
             "data": {
+              "scene_1_station": "Station",
               "scene_1_source": "Source (e.g. Sonos favorite)",
               "scene_1_media": "Media (Music Assistant)",
               "scene_1_media_type": "Media type",
@@ -145,6 +148,7 @@
               "scene_1_address": "1-bit address"
             },
             "data_description": {
+              "scene_1_station": "Fixed station list and Radio Browser; takes precedence over source and media.",
               "scene_1_source": "Pick from the player's sources or type the name.",
               "scene_1_media": "Name or URI of a playlist, album, station etc. (e.g. library://playlist/1). Only used when no source is set.",
               "scene_1_media_type": "Empty = automatic."
@@ -154,6 +158,7 @@
             "name": "Scene 2",
             "description": "Runs on scene number 2 or via its own 1-bit address (1 = start, 0 = pause).",
             "data": {
+              "scene_2_station": "Station",
               "scene_2_source": "Source (e.g. Sonos favorite)",
               "scene_2_media": "Media (Music Assistant)",
               "scene_2_media_type": "Media type",
@@ -161,6 +166,7 @@
               "scene_2_address": "1-bit address"
             },
             "data_description": {
+              "scene_2_station": "Fixed station list and Radio Browser; takes precedence over source and media.",
               "scene_2_source": "Pick from the player's sources or type the name.",
               "scene_2_media": "Name or URI of a playlist, album, station etc. (e.g. library://playlist/1). Only used when no source is set.",
               "scene_2_media_type": "Empty = automatic."
@@ -170,6 +176,7 @@
             "name": "Scene 3",
             "description": "Runs on scene number 3 or via its own 1-bit address (1 = start, 0 = pause).",
             "data": {
+              "scene_3_station": "Station",
               "scene_3_source": "Source (e.g. Sonos favorite)",
               "scene_3_media": "Media (Music Assistant)",
               "scene_3_media_type": "Media type",
@@ -177,6 +184,7 @@
               "scene_3_address": "1-bit address"
             },
             "data_description": {
+              "scene_3_station": "Fixed station list and Radio Browser; takes precedence over source and media.",
               "scene_3_source": "Pick from the player's sources or type the name.",
               "scene_3_media": "Name or URI of a playlist, album, station etc. (e.g. library://playlist/1). Only used when no source is set.",
               "scene_3_media_type": "Empty = automatic."
@@ -186,6 +194,7 @@
             "name": "Scene 4",
             "description": "Runs on scene number 4 or via its own 1-bit address (1 = start, 0 = pause).",
             "data": {
+              "scene_4_station": "Station",
               "scene_4_source": "Source (e.g. Sonos favorite)",
               "scene_4_media": "Media (Music Assistant)",
               "scene_4_media_type": "Media type",
@@ -193,6 +202,7 @@
               "scene_4_address": "1-bit address"
             },
             "data_description": {
+              "scene_4_station": "Fixed station list and Radio Browser; takes precedence over source and media.",
               "scene_4_source": "Pick from the player's sources or type the name.",
               "scene_4_media": "Name or URI of a playlist, album, station etc. (e.g. library://playlist/1). Only used when no source is set.",
               "scene_4_media_type": "Empty = automatic."
@@ -202,6 +212,7 @@
             "name": "Scene 5",
             "description": "Runs on scene number 5 or via its own 1-bit address (1 = start, 0 = pause).",
             "data": {
+              "scene_5_station": "Station",
               "scene_5_source": "Source (e.g. Sonos favorite)",
               "scene_5_media": "Media (Music Assistant)",
               "scene_5_media_type": "Media type",
@@ -209,6 +220,7 @@
               "scene_5_address": "1-bit address"
             },
             "data_description": {
+              "scene_5_station": "Fixed station list and Radio Browser; takes precedence over source and media.",
               "scene_5_source": "Pick from the player's sources or type the name.",
               "scene_5_media": "Name or URI of a playlist, album, station etc. (e.g. library://playlist/1). Only used when no source is set.",
               "scene_5_media_type": "Empty = automatic."

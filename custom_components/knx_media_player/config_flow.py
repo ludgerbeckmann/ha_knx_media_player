@@ -28,6 +28,7 @@ from .const import (
     CONF_START_MEDIA,
     CONF_START_MEDIA_TYPE,
     CONF_START_SOURCE,
+    CONF_START_STATION,
     CONF_START_VOLUME,
     CONF_STATUS_ALBUM,
     CONF_STATUS_ARTIST,
@@ -51,9 +52,11 @@ from .helpers import (
     KIND_MUSIC_ASSISTANT,
     KIND_SONOS,
     async_library_options,
+    async_station_options,
     drop_unused_fields,
     describe_player,
     player_kind,
+    selected_media_summary,
 )
 from .knx_project import address_label, async_project_addresses
 
@@ -151,6 +154,7 @@ def _options_schema(
     project: list[dict[str, Any]],
     kind: str | None = None,
     library: list[dict[str, Any]] | None = None,
+    stations: list[dict[str, Any]] | None = None,
 ) -> vol.Schema:
     """Die Optionsseite: Abschnitte Grenzen, Wiedergabe, Start, Lautstärke, Rückmeldungen, Szenen.
 
@@ -170,6 +174,14 @@ def _options_schema(
     source = selector.SelectSelector(
         selector.SelectSelectorConfig(
             options=sources, custom_value=True, mode=selector.SelectSelectorMode.DROPDOWN
+        )
+    )
+    # „Sender“ gibt es bei jedem Player: feste Liste (und Radio Browser), durchsuchbar
+    station = selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[selector.SelectOptionDict(**item) for item in (stations or [])],
+            custom_value=True,
+            mode=selector.SelectSelectorMode.DROPDOWN,
         )
     )
     media: Any = str
@@ -210,6 +222,9 @@ def _options_schema(
                 vol.Optional(
                     CONF_START_VOLUME, description=_suggest(CONF_START_VOLUME, defaults)
                 ): _number(0, 100),
+                vol.Optional(
+                    CONF_START_STATION, description=_suggest(CONF_START_STATION, defaults)
+                ): station,
                 **(
                     {
                         vol.Optional(
@@ -246,11 +261,13 @@ def _options_schema(
         vol.Required(SECTION_SCENES): _section(_addresses([CONF_ADDR_SCENE])),
     }
     for number in range(1, SCENE_COUNT + 1):
-        src_key, vol_key, addr_key, media_key, type_key = (
-            scene_key(number, f) for f in ("source", "volume", "address", "media", "media_type")
+        src_key, vol_key, addr_key, media_key, type_key, station_key = (
+            scene_key(number, f)
+            for f in ("source", "volume", "address", "media", "media_type", "station")
         )
         sections[vol.Required(f"scene_{number}")] = _section(
             {
+                vol.Optional(station_key, description=_suggest(station_key, defaults)): station,
                 **(
                     {vol.Optional(src_key, description=_suggest(src_key, defaults)): source}
                     if show_source
@@ -288,7 +305,8 @@ def _validate(flat: dict[str, Any]) -> dict[str, str]:
         return {"base": "invalid_address"}
     for number in range(1, SCENE_COUNT + 1):
         has_action = (
-            flat.get(scene_key(number, "source"))
+            flat.get(scene_key(number, "station"))
+            or flat.get(scene_key(number, "source"))
             or flat.get(scene_key(number, "media"))
             or flat.get(scene_key(number, "volume")) is not None
         )
@@ -431,14 +449,19 @@ class KnxMediaPlayerOptionsFlow(OptionsFlow):
         library = (
             await async_library_options(self.hass, player) if kind == KIND_MUSIC_ASSISTANT else None
         )
+        stations = await async_station_options(self.hass)
         return self.async_show_form(
             step_id="init",
             data_schema=_options_schema(
-                defaults, sources, await async_project_addresses(self.hass), kind, library
+                defaults, sources, await async_project_addresses(self.hass), kind, library, stations
             ),
             errors=errors,
             description_placeholders={
                 "player": entry.data[CONF_PLAYER],
                 "player_info": await describe_player(self.hass, entry.data[CONF_PLAYER]),
+                # Titel der gespeicherten Sender und Medien (das Feld zeigt nach der Auswahl den Wert)
+                "media_info": selected_media_summary(
+                    self.hass, dict(entry.options), [*stations, *(library or [])]
+                ),
             },
         )

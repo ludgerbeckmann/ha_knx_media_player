@@ -296,7 +296,7 @@ def page(**fields):
             sections["playback"][key] = value
         elif key in ("addr_volume", "addr_volume_step", "addr_volume_dim", "addr_mute"):
             sections["volume"][key] = value
-        elif key in ("start_volume", "start_source", "start_media", "start_media_type"):
+        elif key in ("start_volume", "start_source", "start_media", "start_media_type", "start_station"):
             sections["start"][key] = value
         elif key == "addr_scene":
             sections["scenes"][key] = value
@@ -761,3 +761,229 @@ async def test_library_is_only_read_for_music_assistant(hass: HomeAssistant) -> 
             await hass.config_entries.options.async_init(entry.entry_id)
         mocked.assert_not_called()
         await hass.config_entries.async_remove(entry.entry_id)
+
+
+# --- Senderliste und Radio Browser -----------------------------------------------------
+
+WDR4 = "https://wdr-wdr4-live.icecastssl.wdr.de/wdr/wdr4/live/mp3/128/stream.mp3"
+RB_URI = "media-source://radio_browser/abc-123"
+
+
+def test_station_list_is_complete() -> None:
+    from custom_components.knx_media_player.stations import STATIONS
+
+    assert list(STATIONS) == [
+        "WDR 2 Münsterland", "WDR 4", "1LIVE", "Radio WMW", "Energy NRW", "Energy Digital",
+        "Radio Bob", "Radio Bob NRW",
+    ]
+    assert STATIONS["WDR 4"] == WDR4
+    assert all(url.startswith("https://") for url in STATIONS.values())
+
+
+def test_scene_precedence_station_source_media() -> None:
+    values = {
+        "addr_scene": "3/0/1",
+        "scene_1_station": "WDR 4", "scene_1_source": "Jazz", "scene_1_media": "library://x",
+        "scene_2_source": "Jazz", "scene_2_media": "library://x",
+        "scene_3_media": "library://x",
+    }
+    get = lambda key, default=None: values.get(key, default)  # noqa: E731
+    actions = {}
+    for command in build_commands(get):
+        if command.get("scene"):
+            actions.setdefault(command["scene"], []).append(command["action"])
+    # es läuft immer nur eines: Sender vor Quelle vor Medium
+    assert actions == {1: ["station"], 2: ["source"], 3: ["media"]}
+
+
+async def test_fixed_station_scene_and_start(hass: HomeAssistant) -> None:
+    _, m = await _setup(
+        hass, addr_scene="3/0/1", scene_1_station="WDR 4", scene_1_volume=20,
+        start_station="Radio Bob", start_volume=10, addr_toggle="1/0/4",
+    )
+    await _telegram(hass, "3/0/1", (0,))
+    assert m["volume_set"][-1].data["volume_level"] == 0.2
+    assert m["play_media"][-1].data == {
+        "entity_id": PLAYER, "media_content_id": WDR4, "media_content_type": "music",
+    }
+    await _telegram(hass, "1/0/4", 1)  # Player pausiert: Startlautstärke, dann Startsender
+    assert m["volume_set"][-1].data["volume_level"] == 0.1
+    assert m["play_media"][-1].data["media_content_id"].startswith("https://streams.radiobob.de/bob-national/")
+    assert not m["media_play"]
+
+
+async def test_station_beats_source_and_media_at_start(hass: HomeAssistant) -> None:
+    _, m = await _setup(
+        hass, start_station="WDR 4", start_source="Jazz", start_media="x", addr_toggle="1/0/4"
+    )
+    await _telegram(hass, "1/0/4", 1)
+    assert m["play_media"][-1].data["media_content_id"] == WDR4
+    assert not m["select_source"]
+
+
+@pytest.mark.parametrize("platform", ["sonos", "music_assistant"])
+async def test_radio_browser_station_sonos_and_music_assistant_resolve_themselves(
+    hass: HomeAssistant, platform: str
+) -> None:
+    _register_player(hass, platform)
+    _, m = await _setup(hass, addr_scene="3/0/1", scene_1_station=RB_URI)
+    await _telegram(hass, "3/0/1", (0,))
+    # die Adresse geht unverändert an den Player (Sonos behandelt sie als Radio)
+    assert m["play_media"][-1].data["media_content_id"] == RB_URI
+    assert m["play_media"][-1].data["media_content_type"] == "music"
+
+
+async def test_radio_browser_station_resolved_for_other_players(hass: HomeAssistant) -> None:
+    from unittest.mock import AsyncMock, patch
+
+    from homeassistant.components.media_source import PlayMedia
+
+    _, m = await _setup(hass, addr_scene="3/0/1", scene_1_station=RB_URI)
+    resolve = AsyncMock(return_value=PlayMedia("https://radio.example/stream.mp3", "audio/mpeg"))
+    with patch("custom_components.knx_media_player.controller.media_source.async_resolve_media", resolve):
+        await _telegram(hass, "3/0/1", (0,))
+    resolve.assert_awaited_once_with(hass, RB_URI, PLAYER)
+    assert m["play_media"][-1].data["media_content_id"] == "https://radio.example/stream.mp3"
+    assert m["play_media"][-1].data["media_content_type"] == "audio/mpeg"
+
+    # Sender nicht mehr verfügbar: nichts spielt, nichts bricht ab
+    m["play_media"].clear()
+    boom = AsyncMock(side_effect=RuntimeError("weg"))
+    with patch("custom_components.knx_media_player.controller.media_source.async_resolve_media", boom):
+        await _telegram(hass, "3/0/1", (0,))
+    assert not m["play_media"]
+
+
+async def test_free_url_and_unknown_station(hass: HomeAssistant) -> None:
+    _, m = await _setup(
+        hass, addr_scene="3/0/1", scene_1_station="https://example.org/live.mp3",
+        scene_2_station="Gibt es nicht",
+    )
+    await _telegram(hass, "3/0/1", (0,))
+    assert m["play_media"][-1].data["media_content_id"] == "https://example.org/live.mp3"
+    count = len(m["play_media"])
+    await _telegram(hass, "3/0/1", (1,))  # Szene 2: Name nicht in der Liste
+    assert len(m["play_media"]) == count
+
+
+def _rb_loaded():
+    """Radio Browser gilt als eingerichtet (ohne echten Eintrag, dessen Paket hier fehlt)."""
+    from unittest.mock import patch
+
+    return patch(
+        "custom_components.knx_media_player.helpers._radio_browser_loaded", return_value=True
+    )
+
+
+async def test_radio_browser_options(hass: HomeAssistant) -> None:
+    from unittest.mock import patch
+
+    from custom_components.knx_media_player import helpers
+
+    # Integration nicht eingerichtet: leer
+    assert await helpers.async_radio_browser_options(hass) == []
+    hass.config.language = "de"
+    calls = []
+
+    async def browse(hass_, uri, **kwargs):
+        calls.append(uri)
+        if uri.endswith("/local"):
+            return _listing(_browse("WDR 2 Münsterland", "media-source://radio_browser/u1"))
+        return _listing(
+            _browse("WDR 2 Münsterland", "media-source://radio_browser/u1"),
+            _browse("Hit Radio FFH", "media-source://radio_browser/u2"),
+            _browse("Nur Ordner", "media-source://radio_browser/u3", can_play=False),
+        )
+
+    with _rb_loaded(), patch.object(helpers.media_source, "async_browse_media", browse):
+        options = await helpers.async_radio_browser_options(hass)
+        assert options == [
+            {"value": "media-source://radio_browser/u1", "label": "Radio Browser · Lokal · WDR 2 Münsterland"},
+            {"value": "media-source://radio_browser/u2", "label": "Radio Browser · Beliebt · Hit Radio FFH"},
+        ]
+        assert calls == [
+            "media-source://radio_browser/local", "media-source://radio_browser/popular",
+        ]
+        await helpers.async_radio_browser_options(hass)  # aus dem Speicher
+        assert len(calls) == 2
+
+
+async def test_radio_browser_options_failures(hass: HomeAssistant) -> None:
+    from unittest.mock import patch
+
+    from custom_components.knx_media_player import helpers
+
+    async def broken(*args, **kwargs):
+        raise RuntimeError("nicht erreichbar")
+
+    async def slow(*args, **kwargs):
+        import asyncio
+
+        await asyncio.sleep(5)
+
+    with _rb_loaded(), patch.object(helpers.media_source, "async_browse_media", broken):
+        assert await helpers.async_radio_browser_options(hass) == []
+    with _rb_loaded(), patch.object(helpers.media_source, "async_browse_media", slow), patch.object(
+        helpers, "RADIO_BROWSER_TIMEOUT", 0.05
+    ):
+        assert await helpers.async_radio_browser_options(hass) == []
+    # Fehler werden nicht gemerkt: der nächste Versuch fragt wieder
+    async def fine(hass_, uri, **kwargs):
+        return _listing(_browse("A", "media-source://radio_browser/a"))
+
+    with _rb_loaded(), patch.object(helpers.media_source, "async_browse_media", fine):
+        assert len(await helpers.async_radio_browser_options(hass)) == 1
+
+
+async def test_options_flow_station_field_and_summary(hass: HomeAssistant) -> None:
+    from unittest.mock import patch
+
+    _register_player(hass, "sonos")
+    entry, _ = await _setup(
+        hass, addr_scene="3/0/1", start_station="WDR 4", scene_1_station=RB_URI,
+        scene_2_source="Jazz", scene_3_station="https://example.org/live.mp3",
+    )
+    rb = [{"value": RB_URI, "label": "Radio Browser · Lokal · WDR 2 Münsterland"}]
+    hass.config.language = "de"
+    with patch(
+        "custom_components.knx_media_player.helpers.async_radio_browser_options", return_value=rb
+    ):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+    # „Sender“ steht bei jedem Player, hier Sonos, mit fester Liste und Radio Browser
+    stations = _media_selector(result, "start", "start_station").config["options"]
+    values = [o["value"] for o in stations]
+    assert values[:8] == [
+        "WDR 2 Münsterland", "WDR 4", "1LIVE", "Radio WMW", "Energy NRW", "Energy Digital",
+        "Radio Bob", "Radio Bob NRW",
+    ] and RB_URI in values
+    assert _media_selector(result, "scene_4", "scene_4_station").config["custom_value"] is True
+    info = result["description_placeholders"]["media_info"]
+    assert "Wiedergabeoption: Radiosender · WDR 4" in info
+    assert "Szene 1: Radio Browser · Lokal · WDR 2 Münsterland" in info
+    assert "Szene 3: https://example.org/live.mp3" in info  # frei eingegeben: unverändert
+    assert "Szene 2" not in info  # nur Quelle: zeigt das Feld selbst
+
+
+async def test_summary_precedence_and_empty(hass: HomeAssistant) -> None:
+    from custom_components.knx_media_player.helpers import selected_media_summary
+
+    hass.config.language = "de"
+    assert selected_media_summary(hass, {}, []) == "noch nichts gewählt"
+    # Sender vor Quelle vor Medium; Quelle gesetzt: Medium wird nicht angezeigt
+    assert selected_media_summary(
+        hass, {"scene_1_source": "Jazz", "scene_1_media": "library://x"}, []
+    ) == "noch nichts gewählt"
+    assert selected_media_summary(
+        hass, {"scene_1_media": "library://x"}, [{"value": "library://x", "label": "Playlist · Rock"}]
+    ) == "Szene 1: Playlist · Rock"
+    hass.config.language = "en"
+    assert selected_media_summary(hass, {}, []) == "nothing selected yet"
+
+
+async def test_scene_with_station_needs_trigger(hass: HomeAssistant) -> None:
+    entry, _ = await _setup(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    bad = await hass.config_entries.options.async_configure(
+        result["flow_id"], page(scene_4_station="WDR 4")
+    )
+    assert bad["errors"] == {"base": "scene_no_trigger"}

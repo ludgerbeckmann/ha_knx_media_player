@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any
 
+from homeassistant.components import media_source
 from homeassistant.components.media_player import DATA_COMPONENT
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers import device_registry as dr
@@ -17,9 +20,12 @@ from .const import (
     CONF_START_MEDIA,
     CONF_START_MEDIA_TYPE,
     CONF_START_SOURCE,
+    CONF_START_STATION,
+    DOMAIN,
     SCENE_COUNT,
     scene_key,
 )
+from .stations import STATIONS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -133,3 +139,97 @@ async def describe_player(hass: HomeAssistant, entity_id: str) -> str:
     if state:
         parts.append(entity_id)
     return " · ".join(parts)
+
+
+# --- Senderliste: feste Sender und Radio Browser ------------------------------------------
+
+RADIO_BROWSER = "radio_browser"
+RADIO_BROWSER_TIMEOUT = 10  # Sekunden für beide Abfragen zusammen
+RADIO_BROWSER_TTL = 3600  # Sekunden, die eine Abfrage im Speicher bleibt
+_RADIO_BROWSER_CACHE = f"{DOMAIN}_radio_browser"
+
+
+def fixed_station_options(hass: HomeAssistant) -> list[dict[str, Any]]:
+    """Feste Sender: gespeichert wird der Name, angezeigt „Radiosender · Name“."""
+    prefix = "Radiosender" if (hass.config.language or "").startswith("de") else "Radio station"
+    return [{"value": name, "label": f"{prefix} · {name}"} for name in STATIONS]
+
+
+def _radio_browser_loaded(hass: HomeAssistant) -> bool:
+    """Ist die Integration Radio Browser eingerichtet und geladen?"""
+    return any(
+        entry.state is ConfigEntryState.LOADED
+        for entry in hass.config_entries.async_entries(RADIO_BROWSER)
+    )
+
+
+async def async_radio_browser_options(hass: HomeAssistant) -> list[dict[str, Any]]:
+    """Sender der Integration Radio Browser: lokale (bis 100 km) und beliebte (Top 250).
+
+    Gespeichert wird die `media-source://radio_browser/…`-Adresse. Nur lesend; die Antwort bleibt
+    eine Stunde im Speicher. Ohne die Integration, bei Fehlern oder Zeitüberschreitung ist die Liste leer."""
+    if not _radio_browser_loaded(hass):
+        return []
+    cached = hass.data.get(_RADIO_BROWSER_CACHE)
+    if cached and time.monotonic() - cached[0] < RADIO_BROWSER_TTL:
+        return cached[1]
+    german = (hass.config.language or "").startswith("de")
+    options: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    try:
+        async with asyncio.timeout(RADIO_BROWSER_TIMEOUT):
+            for identifier, de, en in (("local", "Lokal", "Local"), ("popular", "Beliebt", "Popular")):
+                listing = await media_source.async_browse_media(
+                    hass, f"media-source://{RADIO_BROWSER}/{identifier}"
+                )
+                for item in listing.children or []:
+                    uri = item.media_content_id
+                    if not uri or not item.can_play or uri in seen:
+                        continue
+                    seen.add(uri)
+                    options.append(
+                        {"value": uri, "label": f"Radio Browser · {de if german else en} · {item.title}"}
+                    )
+    except Exception:  # noqa: BLE001 - Lesefehler dürfen den Dialog nie verhindern
+        _LOGGER.debug("Radio Browser nicht lesbar", exc_info=True)
+        return []
+    hass.data[_RADIO_BROWSER_CACHE] = (time.monotonic(), options)
+    return options
+
+
+async def async_station_options(hass: HomeAssistant) -> list[dict[str, Any]]:
+    """Auswahl „Sender“: feste Sender, dann Radio Browser (falls vorhanden)."""
+    return [*fixed_station_options(hass), *await async_radio_browser_options(hass)]
+
+
+def selected_media_summary(
+    hass: HomeAssistant, settings: dict[str, Any], options: list[dict[str, Any]]
+) -> str:
+    """Zeile „Wiedergabeoption: Radiosender · WDR 4 · Szene 1: Playlist · …“ mit den gewählten Titeln.
+
+    `options` übersetzt gespeicherte Werte (Name, Adresse) in den angezeigten Titel; unbekannte
+    Werte (z. B. frei eingegeben) erscheinen unverändert."""
+    german = (hass.config.language or "").startswith("de")
+    labels = {item["value"]: item["label"] for item in options}
+    parts: list[str] = []
+    places = [
+        (
+            "Wiedergabeoption" if german else "Playback option",
+            CONF_START_STATION, CONF_START_SOURCE, CONF_START_MEDIA,
+        )
+    ]
+    places += [
+        (
+            f"{'Szene' if german else 'Scene'} {n}",
+            scene_key(n, "station"), scene_key(n, "source"), scene_key(n, "media"),
+        )
+        for n in range(1, SCENE_COUNT + 1)
+    ]
+    for place, station_key, source_key, media_key in places:
+        # Vorrang wie beim Abspielen: Sender, dann Quelle (zeigt das Feld selbst an), dann Medium
+        value = settings.get(station_key) or (
+            None if settings.get(source_key) else settings.get(media_key)
+        )
+        if value:
+            parts.append(f"{place}: {labels.get(value, value)}")
+    return " · ".join(parts) if parts else ("noch nichts gewählt" if german else "nothing selected yet")

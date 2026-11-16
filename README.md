@@ -21,8 +21,9 @@ auf Sonos beschränkt.
 | Funktion | Beschreibung |
 | --- | --- |
 | [Befehle](#befehle-knx--media-player) | Play/Pause, Vor/Zurück, Stopp, Umschalten, Lautstärke absolut, Lauter/Leiser, Dimmen, Stumm |
-| [Szenen](#szenen-und-start-der-wiedergabe) | Szenen 1–5 setzen Lautstärke, Quelle (z. B. Sonos-Favorit) und/oder Medium (z. B. Music-Assistant-Playlist) |
-| [Wiedergabeoption](#szenen-und-start-der-wiedergabe) | Startlautstärke und Startquelle/-medium, damit nie eine alte hohe Lautstärke übernommen wird |
+| [Szenen](#szenen-und-start-der-wiedergabe) | Szenen 1–5 setzen Lautstärke und starten einen Sender, eine Quelle (z. B. Sonos-Favorit) oder ein Medium (z. B. Music-Assistant-Playlist) |
+| [Sender](#sender) | Feste Senderliste (WDR 2 Münsterland, WDR 4, 1LIVE, Radio WMW, Energy NRW und Digital, Radio Bob und NRW) und Radio Browser, für jeden Player |
+| [Wiedergabeoption](#szenen-und-start-der-wiedergabe) | Startlautstärke und Startsender/-quelle/-medium, damit nie eine alte hohe Lautstärke übernommen wird |
 | [Rückmeldungen](#rückmeldungen-media-player--knx) | Spielt/Pause, Lautstärke, Stumm, Titel, Interpret, Album und Quelle, auch als Antwort auf Lesetelegramme |
 | [Grenzen](#einstellungen-des-players) | Lautstärkegrenze, Lautstärkeschritt, „Stoppen statt Pause“ |
 
@@ -93,10 +94,11 @@ Die Seite prüft die Eingaben (ungültige Gruppenadresse, Szene ohne Auslöser).
 (z. B. eine Music-Assistant-Playlist) gewählt werden. So wird nie eine alte, hohe Lautstärke übernommen.
 Pausieren und bereits laufende Wiedergabe bleiben unberührt.
 
-**Szenen 1–5:** Jede Szene kann eine Lautstärke, eine Quelle und/oder ein Medium setzen. Ausgelöst wird sie über
+**Szenen 1–5:** Jede Szene kann eine Lautstärke setzen und einen Sender, eine Quelle oder ein Medium starten. Ausgelöst wird sie über
 die Szenennummer auf der Szenenadresse oder über eine eigene 1-Bit-Adresse (1 = starten, 0 = Pause). Eine Szene
 mit Quelle, Medium oder Lautstärke braucht die Szenenadresse oder eine eigene 1-Bit-Adresse.
 
+- **Sender** (`media_player.play_media`): bei jedem Player, siehe [Sender](#sender).
 - **Quelle** (`media_player.select_source`): z. B. ein Sonos-Favorit.
 - **Medium** (`media_player.play_media`): Name oder URI einer Playlist, eines Albums, Interpreten, Titels oder
   Radiosenders, z. B. `library://playlist/7` oder `Radio Paradise`. Das ist der Weg für **Music Assistant**,
@@ -107,11 +109,24 @@ mit Quelle, Medium oder Lautstärke braucht die Szenenadresse oder eine eigene 1
   Eigene Eingaben (Alben, Interpreten, Podcasts, Adressen von Spotify) sind weiter möglich. Die Liste wird beim Öffnen
   des Dialogs nur gelesen, höchstens 500 Einträge je Art. Ist der Player nicht erreichbar oder dauert die Abfrage
   länger als etwa 10 Sekunden, bleibt „Medium“ ein Textfeld.
-- Sind Quelle und Medium gesetzt, wird nur die Quelle verwendet.
+- **Vorrang:** Sind mehrere gesetzt, läuft nur eines: Sender, dann Quelle, dann Medium.
 - **Der Dialog zeigt nur die passenden Felder:** Bei einem **Sonos**-Player gibt es nur die *Quelle* (Favoriten und
   Playlists aus der Quellenliste des Players), bei **Music Assistant** nur *Medium* und *Typ*. Bei jedem anderen Player
   stehen beide zur Wahl. Erkannt wird das an der Integration, die den Media Player bereitstellt. Beim Wechsel des
   Players über *Neu konfigurieren* werden gespeicherte Felder entfernt, die zum neuen Typ nicht passen.
+
+## Sender
+
+Das Feld **Sender** (Wiedergabeoption und Szenen) gibt es bei **jedem** Player, unabhängig von der Integration. Die Liste ist durchsuchbar:
+
+- **Radiosender (fest):** WDR 2 Münsterland, WDR 4, 1LIVE, Radio WMW, Energy NRW, Energy Digital, Radio Bob, Radio Bob NRW. Es wird der **Name** gespeichert; die Stream-Adresse steht in der Integration (`stations.py`). Ändert sie sich, gilt die Korrektur für alle gespeicherten Szenen. Die Liste lässt sich dort erweitern.
+- **Radio Browser:** Ist die Home-Assistant-Integration *Radio Browser* eingerichtet, kommen ihre **lokalen** Sender (höchstens 100 km um dein Zuhause) und die 250 **beliebtesten** Sender dazu. Die Liste wird beim Öffnen des Dialogs nur gelesen, eine Stunde im Speicher gehalten und bleibt leer, wenn sie nicht erreichbar ist.
+- Sonos und Music Assistant bekommen Radio-Browser-Sender als `media-source://radio_browser/…`-Adresse und lösen sie selbst auf (Sonos behandelt sie als Radio); bei anderen Playern löst die Integration die Adresse selbst auf.
+- Eine frei getippte Adresse (`https://…`) wird direkt abgespielt.
+
+Nach der Auswahl zeigt das Feld den gespeicherten Wert; die **Titel** der gewählten Sender und Medien stehen oben im Dialog („Gewählte Sender und Medien“).
+
+Ob Titel, Interpret und Cover ankommen, hängt vom Stream und vom Player ab. Direkte Stream-Adressen liefern Titel und Interpret meist aus den Metadaten des Streams; ein Sendersymbol als Cover gibt es dabei oft nicht. Die Adressen großer Anbieter (z. B. `edge68.streamonkey.net`) können sich ändern.
 
 ## Rückmeldungen (Media Player → KNX)
 
