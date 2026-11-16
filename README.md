@@ -31,8 +31,8 @@ auf Sonos beschränkt.
 **Schnellstart:**
 
 1. Per HACS oder manuell installieren (siehe unten) und Home Assistant neu starten.
-2. *Einstellungen → Geräte & Dienste → Integration hinzufügen → KNX Media Player*. Optional zuerst einen **Bereich**
-   wählen (grenzt die Auswahl ein), dann den **Media Player**.
+2. *Einstellungen → Geräte & Dienste → Integration hinzufügen → KNX Media Player*, den **Media Player** wählen (die
+   Suche in der Auswahl findet auch Bereiche und Gerätenamen) und im nächsten Fenster mit **OK** bestätigen.
 3. Beim Eintrag über **Konfigurieren** die Gruppenadressen eintragen, danach jederzeit ändern.
 
 **HACS:** Menü (⋮) → *Benutzerdefinierte Repositories* → diese Repository-URL,
@@ -45,8 +45,10 @@ Voraussetzungen sind Home Assistant 2025.3 oder neuer, die eingerichtete
 [KNX-Integration](https://www.home-assistant.io/integrations/knx/) und ein Media Player in Home Assistant.
 
 **Pro Media Player gibt es einen Eintrag**; für weitere Lautsprecher den Vorgang wiederholen. Der Eintrag heißt wie
-der Media Player; den Namen änderst du über *Neu konfigurieren*. Der Schritt „Bereich“ erscheint nur, wenn mindestens
-ein Bereich einen Media Player enthält (Entität oder ihr Gerät); ohne Bereich zeigt die Auswahl alle Media Player. Das neue Gerät bekommt beim Anlegen den **Bereich** des Media Players
+der Media Player; den Namen änderst du über *Neu konfigurieren*. Player, für die es schon einen Eintrag gibt, fehlen in
+der Auswahl. Vor dem Anlegen zeigt ein Bestätigungsfenster, was du gewählt hast: Name, **Integration** (z. B. Sonos
+oder Music Assistant), Bereich und Entity-ID; dieselbe Zeile steht oben in den Optionen und bei *Neu konfigurieren*.
+Das neue Gerät bekommt beim Anlegen den **Bereich** des Media Players
 (der Entität, sonst ihres Geräts); später änderst du ihn wie bei jedem Gerät selbst, die Integration setzt ihn nicht
 wieder zurück.
 
