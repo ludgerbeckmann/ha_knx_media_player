@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 import logging
 from typing import Any
 
+from homeassistant.components import media_source
+from homeassistant.components.media_player.browse_media import async_process_play_media_url
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_PLAYING, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
@@ -32,6 +34,7 @@ from .const import (
     ACT_PLAY_PAUSE,
     ACT_PREVIOUS,
     ACT_SOURCE,
+    ACT_STATION,
     ACT_STOP,
     ACT_VOLUME_DIM,
     ACT_VOLUME_DOWN,
@@ -52,6 +55,7 @@ from .const import (
     CONF_START_MEDIA,
     CONF_START_MEDIA_TYPE,
     CONF_START_SOURCE,
+    CONF_START_STATION,
     CONF_START_VOLUME,
     CONF_STATUS_ALBUM,
     CONF_STATUS_ARTIST,
@@ -82,6 +86,7 @@ from .const import (
     K_SCENE,
     K_SOURCE,
     K_SOURCE_NAME,
+    K_STATION,
     K_VOLUME,
     K_WHEN,
     SCENE_COUNT,
@@ -100,6 +105,7 @@ from .const import (
     scene_key,
     signal_update,
 )
+from .helpers import KIND_MUSIC_ASSISTANT, KIND_SONOS, player_kind
 from .knx_codec import (
     decode_dimming,
     decode_percent,
@@ -108,6 +114,7 @@ from .knx_codec import (
     normalize_ga,
     truncate_text,
 )
+from .stations import STATIONS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -184,6 +191,7 @@ def build_commands(get: Any) -> list[dict[str, Any]]:
                 command[K_WHEN] = when
             commands.append(command)
     for number in range(1, SCENE_COUNT + 1):
+        station = get(scene_key(number, "station"))
         source = get(scene_key(number, "source"))
         media = get(scene_key(number, "media"))
         volume = get(scene_key(number, "volume"))
@@ -205,12 +213,18 @@ def build_commands(get: Any) -> list[dict[str, Any]]:
                     {**base, K_ID: f"scene_{number}:{dpt}:vol", K_ACTION: ACT_VOLUME_SET,
                      K_VOLUME: float(volume)}
                 )
-            if source:
+            # Vorrang: Sender, dann Quelle, dann Medium (es läuft immer nur eines davon)
+            if station:
+                commands.append(
+                    {**base, K_ID: f"scene_{number}:{dpt}:station", K_ACTION: ACT_STATION,
+                     K_STATION: station}
+                )
+            elif source:
                 commands.append(
                     {**base, K_ID: f"scene_{number}:{dpt}:src", K_ACTION: ACT_SOURCE,
                      K_SOURCE_NAME: source}
                 )
-            if media:
+            elif media:
                 commands.append(
                     {**base, K_ID: f"scene_{number}:{dpt}:media", K_ACTION: ACT_MEDIA,
                      K_MEDIA: media,
@@ -474,12 +488,39 @@ class KnxMediaPlayerController:
             "play_media", media_content_id=media, media_content_type=content_type
         )
 
+    async def _async_play_station(self, station: str) -> None:
+        """Sender abspielen: feste Liste (Name), Radio Browser (`media-source://…`) oder eine Adresse."""
+        if url := STATIONS.get(station):
+            await self._async_play_media(url, None)
+        elif media_source.is_media_source_id(station):
+            if player_kind(self.hass, self.player) in (KIND_SONOS, KIND_MUSIC_ASSISTANT):
+                # Sonos (behandelt Radio Browser als Radio) und Music Assistant lösen selbst auf
+                await self._async_play_media(station, None)
+                return
+            try:
+                media = await media_source.async_resolve_media(self.hass, station, self.player)
+            except Exception:  # noqa: BLE001 - Sender nicht mehr verfügbar o. ä.
+                _LOGGER.exception("Sender %s nicht auflösbar", station)
+                return
+            await self._async_player_call(
+                "play_media",
+                media_content_id=async_process_play_media_url(self.hass, media.url),
+                media_content_type=media.mime_type or PLAY_MEDIA_AUTO_TYPE,
+            )
+        elif station.startswith(("http://", "https://")):
+            await self._async_play_media(station, None)
+        else:
+            _LOGGER.warning("%s: Sender %r nicht in der Senderliste", self.entry.title, station)
+
     async def _async_start(self, state) -> None:
-        """Wiedergabe starten; spielt der Player noch nicht, zuerst Startlautstärke und Startquelle/-medium."""
+        """Wiedergabe starten; spielt der Player noch nicht, zuerst Startlautstärke und Startsender/-quelle/-medium."""
         if state.state != STATE_PLAYING:
             volume = self._get(CONF_START_VOLUME)
             if volume is not None:
                 await self._async_set_volume(float(volume))
+            if station := self._get(CONF_START_STATION):
+                await self._async_play_station(station)
+                return
             source = self._get(CONF_START_SOURCE)
             if source:
                 await self._async_player_call("select_source", source=source)
@@ -519,6 +560,8 @@ class KnxMediaPlayerController:
             await self._async_set_volume(current + step if up else current - step)
         elif action == ACT_MUTE_SET:
             await self._async_player_call("volume_mute", is_volume_muted=bool(value))
+        elif action == ACT_STATION and command.get(K_STATION):
+            await self._async_play_station(command[K_STATION])
         elif action == ACT_SOURCE and command.get(K_SOURCE_NAME):
             await self._async_player_call("select_source", source=command[K_SOURCE_NAME])
         elif action == ACT_MEDIA and command.get(K_MEDIA):

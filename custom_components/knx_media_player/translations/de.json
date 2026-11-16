@@ -30,7 +30,7 @@
     "step": {
       "init": {
         "title": "KNX Media Player",
-        "description": "Media Player: {player_info}\n\nAlle Einstellungen auf einer Seite. Leere Gruppenadressen werden nicht verwendet.",
+        "description": "Media Player: {player_info}\n\nGewählte Sender und Medien: {media_info}\n\nAlle Einstellungen auf einer Seite. Leere Gruppenadressen werden nicht verwendet.",
         "sections": {
           "player_settings": {
             "name": "Media Player",
@@ -67,12 +67,14 @@
             "description": "Gilt, wenn ein Play-Befehl einen Player startet, der nicht spielt. So wird nie eine alte hohe Lautstärke übernommen. Leer = keine Änderung. Pausieren und bereits laufende Wiedergabe bleiben unberührt.",
             "data": {
               "start_volume": "Lautstärke beim Start",
+              "start_station": "Sender beim Start",
               "start_source": "Quelle beim Start",
               "start_media": "Medium beim Start (Music Assistant)",
               "start_media_type": "Typ des Mediums"
             },
             "data_description": {
               "start_volume": "Wird vor dem Start gesetzt, begrenzt durch die Lautstärkegrenze.",
+              "start_station": "Feste Senderliste und, falls eingerichtet, Radio Browser (lokal und beliebt). Hat Vorrang vor Quelle und Medium.",
               "start_source": "Spielt diese Quelle (z. B. einen Sonos-Favoriten), statt nur fortzusetzen.",
               "start_media": "Name oder URI einer Playlist, eines Albums, Senders usw. Wird nur genutzt, wenn keine Quelle gesetzt ist.",
               "start_media_type": "Leer = automatisch."
@@ -138,6 +140,7 @@
             "name": "Szene 1",
             "description": "Wird bei Szenennummer 1 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
             "data": {
+              "scene_1_station": "Sender",
               "scene_1_source": "Quelle (z. B. Sonos-Favorit)",
               "scene_1_media": "Medium (Music Assistant)",
               "scene_1_media_type": "Typ des Mediums",
@@ -145,6 +148,7 @@
               "scene_1_address": "1-Bit-Adresse"
             },
             "data_description": {
+              "scene_1_station": "Feste Senderliste und Radio Browser; hat Vorrang vor Quelle und Medium.",
               "scene_1_source": "Aus den Quellen des Players wählen oder den Namen eintippen.",
               "scene_1_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist.",
               "scene_1_media_type": "Leer = automatisch."
@@ -154,6 +158,7 @@
             "name": "Szene 2",
             "description": "Wird bei Szenennummer 2 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
             "data": {
+              "scene_2_station": "Sender",
               "scene_2_source": "Quelle (z. B. Sonos-Favorit)",
               "scene_2_media": "Medium (Music Assistant)",
               "scene_2_media_type": "Typ des Mediums",
@@ -161,6 +166,7 @@
               "scene_2_address": "1-Bit-Adresse"
             },
             "data_description": {
+              "scene_2_station": "Feste Senderliste und Radio Browser; hat Vorrang vor Quelle und Medium.",
               "scene_2_source": "Aus den Quellen des Players wählen oder den Namen eintippen.",
               "scene_2_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist.",
               "scene_2_media_type": "Leer = automatisch."
@@ -170,6 +176,7 @@
             "name": "Szene 3",
             "description": "Wird bei Szenennummer 3 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
             "data": {
+              "scene_3_station": "Sender",
               "scene_3_source": "Quelle (z. B. Sonos-Favorit)",
               "scene_3_media": "Medium (Music Assistant)",
               "scene_3_media_type": "Typ des Mediums",
@@ -177,6 +184,7 @@
               "scene_3_address": "1-Bit-Adresse"
             },
             "data_description": {
+              "scene_3_station": "Feste Senderliste und Radio Browser; hat Vorrang vor Quelle und Medium.",
               "scene_3_source": "Aus den Quellen des Players wählen oder den Namen eintippen.",
               "scene_3_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist.",
               "scene_3_media_type": "Leer = automatisch."
@@ -186,6 +194,7 @@
             "name": "Szene 4",
             "description": "Wird bei Szenennummer 4 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
             "data": {
+              "scene_4_station": "Sender",
               "scene_4_source": "Quelle (z. B. Sonos-Favorit)",
               "scene_4_media": "Medium (Music Assistant)",
               "scene_4_media_type": "Typ des Mediums",
@@ -193,6 +202,7 @@
               "scene_4_address": "1-Bit-Adresse"
             },
             "data_description": {
+              "scene_4_station": "Feste Senderliste und Radio Browser; hat Vorrang vor Quelle und Medium.",
               "scene_4_source": "Aus den Quellen des Players wählen oder den Namen eintippen.",
               "scene_4_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist.",
               "scene_4_media_type": "Leer = automatisch."
@@ -202,6 +212,7 @@
             "name": "Szene 5",
             "description": "Wird bei Szenennummer 5 oder über die eigene 1-Bit-Adresse (1 = starten, 0 = Pause) ausgeführt.",
             "data": {
+              "scene_5_station": "Sender",
               "scene_5_source": "Quelle (z. B. Sonos-Favorit)",
               "scene_5_media": "Medium (Music Assistant)",
               "scene_5_media_type": "Typ des Mediums",
@@ -209,6 +220,7 @@
               "scene_5_address": "1-Bit-Adresse"
             },
             "data_description": {
+              "scene_5_station": "Feste Senderliste und Radio Browser; hat Vorrang vor Quelle und Medium.",
               "scene_5_source": "Aus den Quellen des Players wählen oder den Namen eintippen.",
               "scene_5_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist.",
               "scene_5_media_type": "Leer = automatisch."

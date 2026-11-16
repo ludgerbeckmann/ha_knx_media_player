@@ -12,6 +12,7 @@ CONF_VOLUME_STEP = "volume_step"
 CONF_STOP_INSTEAD = "stop_instead_of_pause"
 CONF_START_VOLUME = "start_volume"
 CONF_START_SOURCE = "start_source"
+CONF_START_STATION = "start_station"
 CONF_START_MEDIA = "start_media"
 CONF_START_MEDIA_TYPE = "start_media_type"
 CONF_IDLE_TEXT = "idle_text"
@@ -49,7 +50,7 @@ PLAY_MEDIA_AUTO_TYPE = "music"  # Standardtyp von Home Assistant, wenn nichts Ge
 
 
 def scene_key(number: int, field: str) -> str:
-    """Schlüssel eines Szenenfelds: `scene_3_source`, `scene_3_media`, `scene_3_media_type`, `scene_3_volume`, `scene_3_address`."""
+    """Schlüssel eines Szenenfelds: `scene_3_station`, `scene_3_source`, `scene_3_media`, `scene_3_media_type`, `scene_3_volume`, `scene_3_address`."""
     return f"scene_{number}_{field}"
 
 
@@ -62,6 +63,7 @@ K_WHEN = "when"
 K_SCENE = "scene"
 K_VOLUME = "volume"
 K_SOURCE_NAME = "source_name"
+K_STATION = "station"
 K_MEDIA = "media"
 K_MEDIA_TYPE = "media_type"
 K_SOURCE = "source"
@@ -91,6 +93,7 @@ ACT_VOLUME_DOWN = "volume_down"
 ACT_VOLUME_DIM = "volume_dim"
 ACT_MUTE_SET = "mute_set"
 ACT_SOURCE = "source"
+ACT_STATION = "station"
 ACT_MEDIA = "media"
 
 # Quellen der Rückmeldungen
