@@ -51,11 +51,13 @@ from .const import (
     CONF_ADDR_VOLUME_STEP,
     CONF_IDLE_TEXT,
     CONF_MAX_VOLUME,
+    CONF_MEDIA_URIS,
     CONF_PLAYER,
     CONF_START_MEDIA,
     CONF_START_MEDIA_TYPE,
     CONF_START_SOURCE,
     CONF_START_STATION,
+    CONF_STATION_URIS,
     CONF_START_VOLUME,
     CONF_STATUS_ALBUM,
     CONF_STATUS_ARTIST,
@@ -488,11 +490,17 @@ class KnxMediaPlayerController:
             "play_media", media_content_id=media, media_content_type=content_type
         )
 
+    def _media_address(self, value: str) -> str:
+        """Adresse eines gewählten Medientitels (Music Assistant); sonst der Wert selbst (Name oder Adresse)."""
+        return (self._get(CONF_MEDIA_URIS) or {}).get(value, value)
+
     async def _async_play_station(self, station: str) -> None:
-        """Sender abspielen: feste Liste (Name), Radio Browser (`media-source://…`) oder eine Adresse."""
+        """Sender abspielen: feste Liste (Name), Radio Browser (Titel oder `media-source://…`) oder eine Adresse."""
         if url := STATIONS.get(station):
             await self._async_play_media(url, None)
-        elif media_source.is_media_source_id(station):
+            return
+        station = (self._get(CONF_STATION_URIS) or {}).get(station, station)
+        if media_source.is_media_source_id(station):
             if player_kind(self.hass, self.player) in (KIND_SONOS, KIND_MUSIC_ASSISTANT):
                 # Sonos (behandelt Radio Browser als Radio) und Music Assistant lösen selbst auf
                 await self._async_play_media(station, None)
@@ -526,7 +534,7 @@ class KnxMediaPlayerController:
                 await self._async_player_call("select_source", source=source)
                 return
             if media := self._get(CONF_START_MEDIA):
-                await self._async_play_media(media, self._get(CONF_START_MEDIA_TYPE))
+                await self._async_play_media(self._media_address(media), self._get(CONF_START_MEDIA_TYPE))
                 return
         await self._async_player_call("media_play")
 
@@ -565,7 +573,9 @@ class KnxMediaPlayerController:
         elif action == ACT_SOURCE and command.get(K_SOURCE_NAME):
             await self._async_player_call("select_source", source=command[K_SOURCE_NAME])
         elif action == ACT_MEDIA and command.get(K_MEDIA):
-            await self._async_play_media(command[K_MEDIA], command.get(K_MEDIA_TYPE))
+            await self._async_play_media(
+                self._media_address(command[K_MEDIA]), command.get(K_MEDIA_TYPE)
+            )
 
     # --- Rückmeldungen (Media Player -> KNX) -----------------------------------
 

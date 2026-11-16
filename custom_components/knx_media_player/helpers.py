@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass, field
 import logging
 import time
 from typing import Any
@@ -20,6 +21,7 @@ from .const import (
     CONF_START_MEDIA,
     CONF_START_MEDIA_TYPE,
     CONF_START_SOURCE,
+    CONF_MEDIA_URIS,
     CONF_START_STATION,
     DOMAIN,
     SCENE_COUNT,
@@ -38,6 +40,7 @@ SOURCE_KEYS = [
     *(scene_key(n, "source") for n in range(1, SCENE_COUNT + 1)),
 ]
 MEDIA_KEYS = [
+    CONF_MEDIA_URIS,
     CONF_START_MEDIA,
     CONF_START_MEDIA_TYPE,
     *(scene_key(n, field) for n in range(1, SCENE_COUNT + 1) for field in ("media", "media_type")),
@@ -92,9 +95,9 @@ async def _async_browse(hass: HomeAssistant, entity_id: str, content_type: str, 
 
 
 async def async_library_options(hass: HomeAssistant, entity_id: str) -> list[dict[str, Any]]:
-    """Playlists und Radiosender der Music-Assistant-Bibliothek als Auswahl: [{value, label}].
+    """Playlists und Radiosender der Music-Assistant-Bibliothek: [{value: Adresse, prefix, title}].
 
-    Die Adresse (z. B. `library://playlist/399`) wird gespeichert, der Titel angezeigt.
+    Aus den Rohdaten macht `make_choices` die Auswahl (Titel als Wert, Adresse dahinter).
     Bei jedem Fehler, Zeitüberschreitung oder fehlendem Player ist die Liste leer; der Dialog
     fällt dann auf freie Eingabe zurück."""
     german = (hass.config.language or "").startswith("de")
@@ -109,7 +112,9 @@ async def async_library_options(hass: HomeAssistant, entity_id: str) -> list[dic
                     if not uri or not item.can_play or uri in seen:
                         continue
                     seen.add(uri)
-                    options.append({"value": uri, "label": f"{de if german else en} · {item.title}"})
+                    options.append(
+                        {"value": uri, "prefix": de if german else en, "title": item.title}
+                    )
     except Exception:  # noqa: BLE001 - Lesefehler dürfen den Dialog nie verhindern
         _LOGGER.debug("Bibliothek von %s nicht lesbar", entity_id, exc_info=True)
         return []
@@ -149,10 +154,67 @@ RADIO_BROWSER_TTL = 3600  # Sekunden, die eine Abfrage im Speicher bleibt
 _RADIO_BROWSER_CACHE = f"{DOMAIN}_radio_browser"
 
 
-def fixed_station_options(hass: HomeAssistant) -> list[dict[str, Any]]:
-    """Feste Sender: gespeichert wird der Name, angezeigt „Radiosender · Name“."""
+@dataclass
+class Choices:
+    """Auswahl für ein Feld mit Anzeigenamen als Wert.
+
+    `options`: Auswahlliste (Wert = eindeutiger Titel, Beschriftung mit Vorsatz),
+    `uris`: Titel -> Adresse, `labels`: Wert (Titel und Adresse) -> Beschriftung."""
+
+    options: list[dict[str, Any]] = field(default_factory=list)
+    uris: dict[str, str] = field(default_factory=dict)
+    labels: dict[str, str] = field(default_factory=dict)
+
+
+def make_choices(
+    entries: list[dict[str, Any]], reserved: set[str] | frozenset[str] = frozenset()
+) -> Choices:
+    """Rohdaten [{value: Adresse, prefix, title}] in eine Auswahl umwandeln.
+
+    Der Titel ist der gespeicherte Wert, damit das Feld nach der Auswahl den Anzeigenamen zeigt.
+    Gleiche Titel (auch mit `reserved`) bekommen eine Nummer: „Radio XY“, „Radio XY (2)“."""
+    choices = Choices()
+    used = set(reserved)
+    for entry in entries:
+        title = base = entry["title"]
+        number = 2
+        while title in used:
+            title = f"{base} ({number})"
+            number += 1
+        used.add(title)
+        label = f"{entry['prefix']} · {title}"
+        choices.options.append({"value": title, "label": label})
+        choices.uris[title] = entry["value"]
+        choices.labels[title] = label
+        choices.labels.setdefault(entry["value"], label)  # ältere Einstellungen mit Adresse
+    return choices
+
+
+def chosen_uris(
+    flat: dict[str, Any], keys: list[str], current: dict[str, str], stored: dict[str, str]
+) -> dict[str, str]:
+    """Zuordnung Titel -> Adresse für die gewählten Werte: aus der aktuellen Liste, sonst die gespeicherte."""
+    result: dict[str, str] = {}
+    for key in keys:
+        value = flat.get(key)
+        if not value:
+            continue
+        if value in current:
+            result[value] = current[value]
+        elif value in stored:
+            result[value] = stored[value]
+    return result
+
+
+def fixed_station_choices(hass: HomeAssistant) -> Choices:
+    """Feste Sender: gespeichert wird der Name, angezeigt „Radiosender · Name“ (Adresse siehe `STATIONS`)."""
     prefix = "Radiosender" if (hass.config.language or "").startswith("de") else "Radio station"
-    return [{"value": name, "label": f"{prefix} · {name}"} for name in STATIONS]
+    choices = Choices()
+    for name in STATIONS:
+        label = f"{prefix} · {name}"
+        choices.options.append({"value": name, "label": label})
+        choices.labels[name] = label
+    return choices
 
 
 def _radio_browser_loaded(hass: HomeAssistant) -> bool:
@@ -166,7 +228,7 @@ def _radio_browser_loaded(hass: HomeAssistant) -> bool:
 async def async_radio_browser_options(hass: HomeAssistant) -> list[dict[str, Any]]:
     """Sender der Integration Radio Browser: lokale (bis 100 km) und beliebte (Top 250).
 
-    Gespeichert wird die `media-source://radio_browser/…`-Adresse. Nur lesend; die Antwort bleibt
+    Rohdaten [{value: `media-source://radio_browser/…`, prefix, title}]. Nur lesend; die Antwort bleibt
     eine Stunde im Speicher. Ohne die Integration, bei Fehlern oder Zeitüberschreitung ist die Liste leer."""
     if not _radio_browser_loaded(hass):
         return []
@@ -188,7 +250,7 @@ async def async_radio_browser_options(hass: HomeAssistant) -> list[dict[str, Any
                         continue
                     seen.add(uri)
                     options.append(
-                        {"value": uri, "label": f"Radio Browser · {de if german else en} · {item.title}"}
+                        {"value": uri, "prefix": f"Radio Browser · {de if german else en}", "title": item.title}
                     )
     except Exception:  # noqa: BLE001 - Lesefehler dürfen den Dialog nie verhindern
         _LOGGER.debug("Radio Browser nicht lesbar", exc_info=True)
@@ -197,20 +259,27 @@ async def async_radio_browser_options(hass: HomeAssistant) -> list[dict[str, Any
     return options
 
 
-async def async_station_options(hass: HomeAssistant) -> list[dict[str, Any]]:
-    """Auswahl „Sender“: feste Sender, dann Radio Browser (falls vorhanden)."""
-    return [*fixed_station_options(hass), *await async_radio_browser_options(hass)]
+async def async_station_choices(hass: HomeAssistant) -> Choices:
+    """Auswahl „Sender“: feste Sender, dann Radio Browser (falls vorhanden).
+
+    Titel aus Radio Browser, die einem festen Sender oder einander gleichen, bekommen eine Nummer."""
+    fixed = fixed_station_choices(hass)
+    radio = make_choices(await async_radio_browser_options(hass), reserved=set(STATIONS))
+    return Choices(
+        options=[*fixed.options, *radio.options],
+        uris=radio.uris,
+        labels={**radio.labels, **fixed.labels},
+    )
 
 
 def selected_media_summary(
-    hass: HomeAssistant, settings: dict[str, Any], options: list[dict[str, Any]]
+    hass: HomeAssistant, settings: dict[str, Any], labels: dict[str, str]
 ) -> str:
     """Zeile „Wiedergabeoption: Radiosender · WDR 4 · Szene 1: Playlist · …“ mit den gewählten Titeln.
 
-    `options` übersetzt gespeicherte Werte (Name, Adresse) in den angezeigten Titel; unbekannte
-    Werte (z. B. frei eingegeben) erscheinen unverändert."""
+    `labels` übersetzt gespeicherte Werte (Titel, ältere Adressen) in die Beschriftung der Liste;
+    unbekannte Werte (z. B. frei eingegeben) erscheinen unverändert."""
     german = (hass.config.language or "").startswith("de")
-    labels = {item["value"]: item["label"] for item in options}
     parts: list[str] = []
     places = [
         (

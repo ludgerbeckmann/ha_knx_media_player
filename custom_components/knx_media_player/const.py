@@ -15,6 +15,10 @@ CONF_START_SOURCE = "start_source"
 CONF_START_STATION = "start_station"
 CONF_START_MEDIA = "start_media"
 CONF_START_MEDIA_TYPE = "start_media_type"
+# Zuordnung Titel -> Adresse für gewählte Sender (Radio Browser) und Medien (Music Assistant);
+# nicht im Formular, wird beim Speichern der Optionen angelegt
+CONF_STATION_URIS = "station_uris"
+CONF_MEDIA_URIS = "media_uris"
 CONF_IDLE_TEXT = "idle_text"
 
 DEFAULT_MAX_VOLUME = 100
