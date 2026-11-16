@@ -23,12 +23,14 @@ from .const import (
     CONF_ADDR_VOLUME_STEP,
     CONF_IDLE_TEXT,
     CONF_MAX_VOLUME,
+    CONF_MEDIA_URIS,
     CONF_NAME,
     CONF_PLAYER,
     CONF_START_MEDIA,
     CONF_START_MEDIA_TYPE,
     CONF_START_SOURCE,
     CONF_START_STATION,
+    CONF_STATION_URIS,
     CONF_START_VOLUME,
     CONF_STATUS_ALBUM,
     CONF_STATUS_ARTIST,
@@ -51,10 +53,13 @@ from .knx_codec import is_valid_ga
 from .helpers import (
     KIND_MUSIC_ASSISTANT,
     KIND_SONOS,
+    Choices,
     async_library_options,
-    async_station_options,
-    drop_unused_fields,
+    async_station_choices,
+    chosen_uris,
     describe_player,
+    drop_unused_fields,
+    make_choices,
     player_kind,
     selected_media_summary,
 )
@@ -84,6 +89,9 @@ _STATUS_TEXT_FIELDS = [
 _SCENE_ADDRESSES = [scene_key(n, "address") for n in range(1, SCENE_COUNT + 1)]
 _SCENE_SOURCES = [scene_key(n, "source") for n in range(1, SCENE_COUNT + 1)]
 _SCENE_VOLUMES = [scene_key(n, "volume") for n in range(1, SCENE_COUNT + 1)]
+# Felder, deren Wert ein Anzeigename ist: dahinter merkt sich die Integration die Adresse
+_STATION_KEYS = [CONF_START_STATION, *(scene_key(n, "station") for n in range(1, SCENE_COUNT + 1))]
+_MEDIA_KEYS = [CONF_START_MEDIA, *(scene_key(n, "media") for n in range(1, SCENE_COUNT + 1))]
 
 # alle Felder mit einer Gruppenadresse (leer = nicht verwendet)
 ADDRESS_FIELDS = [
@@ -431,37 +439,63 @@ class KnxMediaPlayerConfigFlow(ConfigFlow, domain=DOMAIN):
 class KnxMediaPlayerOptionsFlow(OptionsFlow):
     """Konfigurationsseite mit allen Einstellungen und Gruppenadressen."""
 
+    _stations: Choices | None = None
+    _library: Choices | None = None
+
+    async def _async_load_choices(self, player: str, kind: str | None) -> None:
+        """Auswahllisten einmal je Dialog laden, damit Anzeige und Speichern dieselben Titel kennen."""
+        if self._stations is not None:
+            return
+        self._stations = await async_station_choices(self.hass)
+        # Playlists und Radiosender nur bei Music Assistant (lesend, Rückfall: Textfeld)
+        self._library = (
+            make_choices(await async_library_options(self.hass, player))
+            if kind == KIND_MUSIC_ASSISTANT
+            else Choices()
+        )
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self.config_entry
         errors: dict[str, str] = {}
         defaults: dict[str, Any] = dict(entry.options)
+        player = entry.data[CONF_PLAYER]
+        kind = player_kind(self.hass, player)
+        await self._async_load_choices(player, kind)
+        stations, library = self._stations, self._library
+        assert stations is not None and library is not None
         if user_input is not None:
             flat = _flatten_sections(user_input)
             errors = _validate(flat)
             if not errors:
-                return self.async_create_entry(data=clean_options(flat))
+                data = clean_options(flat)
+                # Zu jedem gewählten Titel die Adresse merken (das Feld zeigt den Titel)
+                for key, keys, choices in (
+                    (CONF_STATION_URIS, _STATION_KEYS, stations),
+                    (CONF_MEDIA_URIS, _MEDIA_KEYS, library),
+                ):
+                    if uris := chosen_uris(flat, keys, choices.uris, entry.options.get(key) or {}):
+                        data[key] = uris
+                return self.async_create_entry(data=data)
             defaults = flat
-        player = entry.data[CONF_PLAYER]
         state = self.hass.states.get(player)
         sources = sorted((state.attributes.get("source_list") or []) if state else [])
-        kind = player_kind(self.hass, player)
-        # Playlists und Radiosender nur bei Music Assistant (lesend, Rückfall: Textfeld)
-        library = (
-            await async_library_options(self.hass, player) if kind == KIND_MUSIC_ASSISTANT else None
-        )
-        stations = await async_station_options(self.hass)
         return self.async_show_form(
             step_id="init",
             data_schema=_options_schema(
-                defaults, sources, await async_project_addresses(self.hass), kind, library, stations
+                defaults,
+                sources,
+                await async_project_addresses(self.hass),
+                kind,
+                library.options or None,
+                stations.options,
             ),
             errors=errors,
             description_placeholders={
-                "player": entry.data[CONF_PLAYER],
-                "player_info": await describe_player(self.hass, entry.data[CONF_PLAYER]),
-                # Titel der gespeicherten Sender und Medien (das Feld zeigt nach der Auswahl den Wert)
+                "player": player,
+                "player_info": await describe_player(self.hass, player),
+                # Titel der gespeicherten Sender und Medien (auch ältere Einstellungen mit Adresse)
                 "media_info": selected_media_summary(
-                    self.hass, dict(entry.options), [*stations, *(library or [])]
+                    self.hass, dict(entry.options), {**library.labels, **stations.labels}
                 ),
             },
         )

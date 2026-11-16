@@ -105,7 +105,7 @@ mit Quelle, Medium oder Lautstärke braucht die Szenenadresse oder eine eigene 1
   dessen Player keine Favoriten als Quellen anbieten. Der Typ (Playlist, Album, Interpret, Titel, Radio) ist
   optional; leer = automatisch.
 - **Auswahlliste bei Music Assistant:** „Medium“ bietet die **Playlists und Radiosender** deiner Music-Assistant-Bibliothek
-  zur Auswahl an („Playlist · Name“, „Radiosender · Name“); gespeichert wird die Adresse (z. B. `library://playlist/399`).
+  zur Auswahl an („Playlist · Name“, „Radiosender · Name“); das Feld zeigt nach der Auswahl den **Titel**, dahinter merkt sich der Eintrag die Adresse (z. B. `library://playlist/399`).
   Eigene Eingaben (Alben, Interpreten, Podcasts, Adressen von Spotify) sind weiter möglich. Die Liste wird beim Öffnen
   des Dialogs nur gelesen, höchstens 500 Einträge je Art. Ist der Player nicht erreichbar oder dauert die Abfrage
   länger als etwa 10 Sekunden, bleibt „Medium“ ein Textfeld.
@@ -124,7 +124,11 @@ Das Feld **Sender** (Wiedergabeoption und Szenen) gibt es bei **jedem** Player, 
 - Sonos und Music Assistant bekommen Radio-Browser-Sender als `media-source://radio_browser/…`-Adresse und lösen sie selbst auf (Sonos behandelt sie als Radio); bei anderen Playern löst die Integration die Adresse selbst auf.
 - Eine frei getippte Adresse (`https://…`) wird direkt abgespielt.
 
-Nach der Auswahl zeigt das Feld den gespeicherten Wert; die **Titel** der gewählten Sender und Medien stehen oben im Dialog („Gewählte Sender und Medien“).
+Nach der Auswahl zeigt das Feld den **Titel** (z. B. „WDR 2 Münsterland“), nicht die Adresse. Beim Speichern merkt sich der
+Eintrag zu jedem gewählten Titel aus Radio Browser oder Music Assistant die Adresse und schlägt sie beim Abspielen dort nach; gespeicherte
+Szenen laufen daher auch ohne Abfrage des Verzeichnisses. Gleiche Titel mit verschiedener Adresse bekommen eine Nummer („Radio XY (2)“).
+Ältere Einstellungen mit einer Adresse im Feld laufen weiter und zeigen die Adresse, bis du neu auswählst. Die **Titel** der gewählten Sender
+und Medien stehen außerdem oben im Dialog („Gewählte Sender und Medien“).
 
 Ob Titel, Interpret und Cover ankommen, hängt vom Stream und vom Player ab. Direkte Stream-Adressen liefern Titel und Interpret meist aus den Metadaten des Streams; ein Sendersymbol als Cover gibt es dabei oft nicht. Die Adressen großer Anbieter (z. B. `edge68.streamonkey.net`) können sich ändern.
 

@@ -668,12 +668,12 @@ async def test_library_options_from_player(hass: HomeAssistant) -> None:
     hass.config.language = "de"
     options = await async_library_options(hass, "media_player.buero")
     assert options == [
-        {"value": "library://playlist/399", "label": "Playlist · Pop Rock Radio"},
-        {"value": "library://radio/9", "label": "Radiosender · ffn"},
+        {"value": "library://playlist/399", "prefix": "Playlist", "title": "Pop Rock Radio"},
+        {"value": "library://radio/9", "prefix": "Radiosender", "title": "ffn"},
     ]
     assert calls == [("music_assistant", "playlists"), ("music_assistant", "radio")]
     hass.config.language = "en"
-    assert (await async_library_options(hass, "media_player.buero"))[1]["label"] == "Radio station · ffn"
+    assert (await async_library_options(hass, "media_player.buero"))[1]["prefix"] == "Radio station"
 
 
 async def test_library_options_fall_back_to_empty(hass: HomeAssistant) -> None:
@@ -710,7 +710,7 @@ async def test_options_flow_offers_library_for_music_assistant(hass: HomeAssista
 
     _register_player(hass, "music_assistant")
     entry, _ = await _setup(hass, addr_scene="3/0/1")
-    library = [{"value": "library://playlist/399", "label": "Playlist · Pop Rock Radio"}]
+    library = [{"value": "library://playlist/399", "prefix": "Playlist", "title": "Pop Rock Radio"}]
     with patch(
         "custom_components.knx_media_player.config_flow.async_library_options",
         return_value=library,
@@ -719,16 +719,19 @@ async def test_options_flow_offers_library_for_music_assistant(hass: HomeAssista
     for section, field in (("start", "start_media"), ("scene_2", "scene_2_media")):
         selector_ = _media_selector(result, section, field)
         config = selector_.config
-        assert config["options"] == library and config["custom_value"] is True
-    # Auswahl und freie Eingabe lassen sich speichern
+        # Wert ist der Titel (das Feld zeigt ihn), die Beschriftung hat den Vorsatz
+        assert config["options"] == [{"value": "Pop Rock Radio", "label": "Playlist · Pop Rock Radio"}]
+        assert config["custom_value"] is True
+    # Auswahl und freie Eingabe lassen sich speichern; zur Auswahl merkt sich der Eintrag die Adresse
     done = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        page(addr_scene="3/0/1", start_media="library://playlist/399",
+        page(addr_scene="3/0/1", start_media="Pop Rock Radio",
              scene_2_media="spotify--x://album/1", scene_2_media_type="album"),
     )
     assert done["type"] is FlowResultType.CREATE_ENTRY
-    assert done["data"]["start_media"] == "library://playlist/399"
-    assert done["data"]["scene_2_media"] == "spotify--x://album/1"
+    assert done["data"]["start_media"] == "Pop Rock Radio"
+    assert done["data"]["media_uris"] == {"Pop Rock Radio": "library://playlist/399"}
+    assert done["data"]["scene_2_media"] == "spotify--x://album/1"  # frei: ohne Zuordnung
 
 
 async def test_options_flow_text_field_without_library(hass: HomeAssistant) -> None:
@@ -898,8 +901,8 @@ async def test_radio_browser_options(hass: HomeAssistant) -> None:
     with _rb_loaded(), patch.object(helpers.media_source, "async_browse_media", browse):
         options = await helpers.async_radio_browser_options(hass)
         assert options == [
-            {"value": "media-source://radio_browser/u1", "label": "Radio Browser · Lokal · WDR 2 Münsterland"},
-            {"value": "media-source://radio_browser/u2", "label": "Radio Browser · Beliebt · Hit Radio FFH"},
+            {"value": "media-source://radio_browser/u1", "prefix": "Radio Browser · Lokal", "title": "WDR 2 Münsterland"},
+            {"value": "media-source://radio_browser/u2", "prefix": "Radio Browser · Beliebt", "title": "Hit Radio FFH"},
         ]
         assert calls == [
             "media-source://radio_browser/local", "media-source://radio_browser/popular",
@@ -943,41 +946,147 @@ async def test_options_flow_station_field_and_summary(hass: HomeAssistant) -> No
         hass, addr_scene="3/0/1", start_station="WDR 4", scene_1_station=RB_URI,
         scene_2_source="Jazz", scene_3_station="https://example.org/live.mp3",
     )
-    rb = [{"value": RB_URI, "label": "Radio Browser · Lokal · WDR 2 Münsterland"}]
+    # Titel gleich einem festen Sender: bekommt eine Nummer
+    rb = [{"value": RB_URI, "prefix": "Radio Browser · Lokal", "title": "WDR 2 Münsterland"}]
     hass.config.language = "de"
     with patch(
         "custom_components.knx_media_player.helpers.async_radio_browser_options", return_value=rb
     ):
         result = await hass.config_entries.options.async_init(entry.entry_id)
-    # „Sender“ steht bei jedem Player, hier Sonos, mit fester Liste und Radio Browser
+    # „Sender“ steht bei jedem Player, hier Sonos: feste Liste, dann Radio Browser; Wert = Titel
     stations = _media_selector(result, "start", "start_station").config["options"]
     values = [o["value"] for o in stations]
-    assert values[:8] == [
+    assert values == [
         "WDR 2 Münsterland", "WDR 4", "1LIVE", "Radio WMW", "Energy NRW", "Energy Digital",
-        "Radio Bob", "Radio Bob NRW",
-    ] and RB_URI in values
+        "Radio Bob", "Radio Bob NRW", "WDR 2 Münsterland (2)",
+    ]
+    assert stations[-1]["label"] == "Radio Browser · Lokal · WDR 2 Münsterland (2)"
     assert _media_selector(result, "scene_4", "scene_4_station").config["custom_value"] is True
     info = result["description_placeholders"]["media_info"]
     assert "Wiedergabeoption: Radiosender · WDR 4" in info
-    assert "Szene 1: Radio Browser · Lokal · WDR 2 Münsterland" in info
+    # ältere Einstellung mit Adresse: Titel steht trotzdem oben
+    assert "Szene 1: Radio Browser · Lokal · WDR 2 Münsterland (2)" in info
     assert "Szene 3: https://example.org/live.mp3" in info  # frei eingegeben: unverändert
     assert "Szene 2" not in info  # nur Quelle: zeigt das Feld selbst
+
+
+async def test_station_titles_are_stored_with_their_address(hass: HomeAssistant) -> None:
+    from unittest.mock import patch
+
+    _register_player(hass, "sonos")
+    entry, _ = await _setup(hass, addr_scene="3/0/1")
+    rb = [
+        {"value": RB_URI, "prefix": "Radio Browser · Lokal", "title": "Hit Radio FFH"},
+        {"value": "media-source://radio_browser/zzz", "prefix": "Radio Browser · Beliebt", "title": "Hit Radio FFH"},
+    ]
+    with patch("custom_components.knx_media_player.helpers.async_radio_browser_options", return_value=rb):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        done = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            page(addr_scene="3/0/1", start_station="Hit Radio FFH (2)", scene_1_station="Hit Radio FFH",
+                 scene_2_station="WDR 4"),
+        )
+    data = done["data"]
+    assert data["start_station"] == "Hit Radio FFH (2)" and data["scene_1_station"] == "Hit Radio FFH"
+    # gleiche Titel: der zweite ist nummeriert; feste Sender brauchen keine Zuordnung
+    assert data["station_uris"] == {
+        "Hit Radio FFH (2)": "media-source://radio_browser/zzz",
+        "Hit Radio FFH": RB_URI,
+    }
+    assert "media_uris" not in data
+
+
+async def test_stored_mapping_survives_unreachable_directory(hass: HomeAssistant) -> None:
+    from unittest.mock import patch
+
+    _register_player(hass, "sonos")
+    entry, _ = await _setup(
+        hass, addr_scene="3/0/1", scene_1_station="Hit Radio FFH",
+        station_uris={"Hit Radio FFH": RB_URI, "Nicht mehr genutzt": "media-source://radio_browser/old"},
+    )
+    # Radio Browser nicht erreichbar: die Liste ist leer, die gewählte Zuordnung bleibt, Unbenutztes entfällt
+    with patch("custom_components.knx_media_player.helpers.async_radio_browser_options", return_value=[]):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        done = await hass.config_entries.options.async_configure(
+            result["flow_id"], page(addr_scene="3/0/1", scene_1_station="Hit Radio FFH"),
+        )
+    assert done["data"]["station_uris"] == {"Hit Radio FFH": RB_URI}
+
+
+async def test_make_choices() -> None:
+    from custom_components.knx_media_player.helpers import make_choices
+
+    choices = make_choices(
+        [
+            {"value": "u1", "prefix": "Playlist", "title": "Rock"},
+            {"value": "u2", "prefix": "Radiosender", "title": "Rock"},
+            {"value": "u3", "prefix": "Radiosender", "title": "Rock"},
+            {"value": "u4", "prefix": "Radiosender", "title": "WDR 4"},
+        ],
+        reserved={"WDR 4"},
+    )
+    assert [o["value"] for o in choices.options] == ["Rock", "Rock (2)", "Rock (3)", "WDR 4 (2)"]
+    assert choices.options[1]["label"] == "Radiosender · Rock (2)"
+    assert choices.uris == {"Rock": "u1", "Rock (2)": "u2", "Rock (3)": "u3", "WDR 4 (2)": "u4"}
+    # ältere Einstellungen mit der Adresse zeigen ebenfalls die Beschriftung
+    assert choices.labels["u2"] == "Radiosender · Rock (2)" and choices.labels["Rock (3)"] == "Radiosender · Rock (3)"
+
+
+async def test_titles_are_played_via_stored_address(hass: HomeAssistant) -> None:
+    from unittest.mock import AsyncMock, patch
+
+    from homeassistant.components.media_source import PlayMedia
+
+    # Medium (Music Assistant): Titel -> Adresse, mit Typ
+    _register_player(hass, "music_assistant")
+    _, m = await _setup(
+        hass, addr_scene="3/0/1", scene_1_media="Pop Rock Radio", scene_1_media_type="playlist",
+        media_uris={"Pop Rock Radio": "library://playlist/399"},
+        scene_2_station="Hit Radio FFH", station_uris={"Hit Radio FFH": RB_URI},
+    )
+    await _telegram(hass, "3/0/1", (0,))
+    assert m["play_media"][-1].data["media_content_id"] == "library://playlist/399"
+    assert m["play_media"][-1].data["media_content_type"] == "playlist"
+    # Sender (Radio Browser) bei Music Assistant: Adresse unverändert an den Player
+    await _telegram(hass, "3/0/1", (1,))
+    assert m["play_media"][-1].data["media_content_id"] == RB_URI
+
+
+async def test_station_title_resolved_for_other_players(hass: HomeAssistant) -> None:
+    from unittest.mock import AsyncMock, patch
+
+    from homeassistant.components.media_source import PlayMedia
+
+    _, m = await _setup(
+        hass, addr_scene="3/0/1", scene_1_station="Hit Radio FFH", station_uris={"Hit Radio FFH": RB_URI}
+    )
+    resolve = AsyncMock(return_value=PlayMedia("https://radio.example/ffh.mp3", "audio/mpeg"))
+    with patch("custom_components.knx_media_player.controller.media_source.async_resolve_media", resolve):
+        await _telegram(hass, "3/0/1", (0,))
+    resolve.assert_awaited_once_with(hass, RB_URI, PLAYER)
+    assert m["play_media"][-1].data["media_content_id"] == "https://radio.example/ffh.mp3"
+
+
+async def test_unmapped_media_text_is_used_as_typed(hass: HomeAssistant) -> None:
+    _, m = await _setup(hass, addr_scene="3/0/1", scene_1_media="Radio Paradise")
+    await _telegram(hass, "3/0/1", (0,))
+    assert m["play_media"][-1].data["media_content_id"] == "Radio Paradise"
 
 
 async def test_summary_precedence_and_empty(hass: HomeAssistant) -> None:
     from custom_components.knx_media_player.helpers import selected_media_summary
 
     hass.config.language = "de"
-    assert selected_media_summary(hass, {}, []) == "noch nichts gewählt"
+    assert selected_media_summary(hass, {}, {}) == "noch nichts gewählt"
     # Sender vor Quelle vor Medium; Quelle gesetzt: Medium wird nicht angezeigt
     assert selected_media_summary(
-        hass, {"scene_1_source": "Jazz", "scene_1_media": "library://x"}, []
+        hass, {"scene_1_source": "Jazz", "scene_1_media": "library://x"}, {}
     ) == "noch nichts gewählt"
     assert selected_media_summary(
-        hass, {"scene_1_media": "library://x"}, [{"value": "library://x", "label": "Playlist · Rock"}]
+        hass, {"scene_1_media": "library://x"}, {"library://x": "Playlist · Rock"}
     ) == "Szene 1: Playlist · Rock"
     hass.config.language = "en"
-    assert selected_media_summary(hass, {}, []) == "nothing selected yet"
+    assert selected_media_summary(hass, {}, {}) == "nothing selected yet"
 
 
 async def test_scene_with_station_needs_trigger(hass: HomeAssistant) -> None:
