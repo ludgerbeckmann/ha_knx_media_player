@@ -10,11 +10,11 @@
       },
       "confirm": {
         "title": "Confirm media player",
-        "description": "Selected: {player_info}\n\nOK creates the entry. Wrong one? Close the window, nothing has been created yet. The entry is named after the media player; you can change that later via “Reconfigure”."
+        "description": "Selected:\n\n{player_info}\n\nOK creates the entry. Wrong one? Close the window, nothing has been created yet. The entry is named after the media player; you can change that later via “Reconfigure”."
       },
       "reconfigure": {
         "title": "Change media player",
-        "description": "Choose another media player (e.g. from Sonos to Music Assistant) or change the name. All group addresses and settings are kept. Check sources and media that only existed on the old player in the options afterwards.",
+        "description": "Current:\n\n{player_info}\n\nChoose another media player (e.g. from Sonos to Music Assistant) or change the name. All group addresses and settings are kept. Check sources and media that only existed on the old player in the options afterwards.",
         "data": {
           "player": "Media player",
           "name": "Name (optional)"
@@ -30,20 +30,19 @@
     "step": {
       "init": {
         "title": "KNX Media Player",
-        "description": "Media player: {player_info}\n\nSelected stations and media: {media_info}\n\nAll settings on one page. Empty group addresses are not used.",
+        "description": "{player_info}",
         "sections": {
           "player_settings": {
             "name": "Media player",
-            "description": "Limits and behaviour for {player}.",
             "data": {
               "max_volume": "Volume limit",
               "volume_step": "Volume step",
-              "stop_instead_of_pause": "Stop instead of pause"
+              "pause_mode": "Pause command"
             },
             "data_description": {
               "max_volume": "Highest volume that can be set via KNX.",
               "volume_step": "Step for “volume up/down” and relative dimming.",
-              "stop_instead_of_pause": "“Pause” stops playback instead (e.g. for radio streams)."
+              "pause_mode": "What a pause command does (play/pause switch = 0, scene “off”, button while playing). “Automatic” stops live streams without a duration (radio) and pauses everything else. The stop command always stops."
             }
           },
           "playback": {
@@ -235,6 +234,13 @@
     }
   },
   "selector": {
+    "pause_mode": {
+      "options": {
+        "auto": "Automatic (stop live streams, otherwise pause)",
+        "pause": "Always pause",
+        "stop": "Always stop"
+      }
+    },
     "media_type": {
       "options": {
         "auto": "Automatic",

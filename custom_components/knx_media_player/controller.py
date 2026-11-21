@@ -67,12 +67,17 @@ from .const import (
     CONF_STATUS_SOURCE,
     CONF_STATUS_TITLE,
     CONF_STATUS_VOLUME,
+    CONF_PAUSE_MODE,
     CONF_STOP_INSTEAD,
     CONF_VOLUME_STEP,
     DEFAULT_MAX_VOLUME,
     DEFAULT_VOLUME_STEP,
     DOMAIN,
     MEDIA_TYPE_AUTO,
+    PAUSE_AUTO,
+    PAUSE_MODES,
+    PAUSE_PAUSE,
+    PAUSE_STOP,
     PLAY_MEDIA_AUTO_TYPE,
     DPT_DIMMING,
     DPT_PERCENT,
@@ -477,8 +482,23 @@ class KnxMediaPlayerController:
         level = state.attributes.get("volume_level")
         return None if level is None else float(level) * 100
 
-    async def _async_pause(self) -> None:
-        stop = bool(self._get(CONF_STOP_INSTEAD, False))
+    def _pause_mode(self) -> str:
+        """Einstellung „Pause-Befehl“; ältere Einträge kennen nur den Haken „Stoppen statt Pause“."""
+        mode = self._get(CONF_PAUSE_MODE)
+        if mode in PAUSE_MODES:
+            return mode
+        if (legacy := self._settings.get(CONF_STOP_INSTEAD)) is not None:
+            return PAUSE_STOP if legacy else PAUSE_PAUSE
+        return PAUSE_AUTO
+
+    @staticmethod
+    def _is_live_stream(state) -> bool:
+        """Livestream (z. B. Radio): der Player meldet keine Dauer des laufenden Inhalts."""
+        return not state.attributes.get("media_duration")
+
+    async def _async_pause(self, state) -> None:
+        mode = self._pause_mode()
+        stop = mode == PAUSE_STOP or (mode == PAUSE_AUTO and self._is_live_stream(state))
         await self._async_player_call("media_stop" if stop else "media_pause")
 
     async def _async_play_media(self, media: str, media_type: str | None) -> None:
@@ -542,10 +562,10 @@ class KnxMediaPlayerController:
         if action == ACT_PLAY:
             await self._async_start(state)
         elif action == ACT_PAUSE:
-            await self._async_pause()
+            await self._async_pause(state)
         elif action == ACT_PLAY_PAUSE:
             if state.state == STATE_PLAYING:
-                await self._async_pause()
+                await self._async_pause(state)
             else:
                 await self._async_start(state)
         elif action == ACT_STOP:

@@ -32,7 +32,7 @@ async def _setup(hass: HomeAssistant, state="paused", attrs=None, **options):
         PLAYER, state,
         {"volume_level": 0.3, "is_volume_muted": False, "source_list": ["Radio", "Jazz"],
          "media_title": "Song", "media_artist": "Artist", "media_album_name": "Album",
-         "source": "Radio", **(attrs or {})},
+         "source": "Radio", "media_duration": 200, **(attrs or {})},
     )
     entry = MockConfigEntry(
         domain=DOMAIN, title="Wohnzimmer", data={"player": PLAYER}, options=options,
@@ -89,7 +89,7 @@ async def test_playback_commands(hass: HomeAssistant) -> None:
     assert len(m["media_stop"]) == 1
     await _telegram(hass, "1/0/4", 1)  # pausiert -> Wiedergabe
     assert len(m["media_play"]) == 2
-    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.3})
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.3, "media_duration": 200})
     await _telegram(hass, "1/0/4", 1)  # spielt -> Pause
     assert len(m["media_pause"]) == 2
     assert m["media_play"][0].data["entity_id"] == PLAYER
@@ -145,10 +145,68 @@ async def test_volume_commands(hass: HomeAssistant) -> None:
     assert m["volume_mute"][-1].data["is_volume_muted"] is False
 
 
-async def test_stop_instead_of_pause(hass: HomeAssistant) -> None:
+async def test_legacy_stop_instead_of_pause(hass: HomeAssistant) -> None:
+    """Ältere Einstellung (Haken): True stoppt, False pausiert, jeweils unabhängig vom Inhalt."""
     _, m = await _setup(hass, stop_instead_of_pause=True, addr_play_pause="1/0/1")
     await _telegram(hass, "1/0/1", 0)
     assert len(m["media_stop"]) == 1 and not m["media_pause"]
+
+
+async def test_legacy_pause_flag_false_always_pauses(hass: HomeAssistant) -> None:
+    _, m = await _setup(
+        hass, attrs={"media_duration": None}, stop_instead_of_pause=False, addr_play_pause="1/0/1"
+    )
+    await _telegram(hass, "1/0/1", 0)  # Livestream, aber der Haken war bewusst aus
+    assert len(m["media_pause"]) == 1 and not m["media_stop"]
+
+
+async def test_pause_mode_auto(hass: HomeAssistant) -> None:
+    """Automatisch: Livestream (keine Dauer) stoppt, ein Titel mit Dauer pausiert."""
+    _, m = await _setup(hass, attrs={"media_duration": None}, addr_play_pause="1/0/1")
+    await _telegram(hass, "1/0/1", 0)
+    assert len(m["media_stop"]) == 1 and not m["media_pause"]
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.3, "media_duration": 180})
+    await _telegram(hass, "1/0/1", 0)
+    assert len(m["media_pause"]) == 1 and len(m["media_stop"]) == 1
+
+
+async def test_pause_mode_auto_is_the_default(hass: HomeAssistant) -> None:
+    # weder pause_mode noch der ältere Haken gespeichert
+    _, m = await _setup(hass, attrs={"media_duration": None}, addr_play_pause="1/0/1")
+    await _telegram(hass, "1/0/1", 0)
+    assert len(m["media_stop"]) == 1
+
+
+async def test_pause_mode_fixed(hass: HomeAssistant) -> None:
+    _, m = await _setup(hass, attrs={"media_duration": None}, pause_mode="pause", addr_play_pause="1/0/1")
+    await _telegram(hass, "1/0/1", 0)
+    assert len(m["media_pause"]) == 1 and not m["media_stop"]
+
+
+async def test_pause_mode_stop_even_for_tracks(hass: HomeAssistant) -> None:
+    _, m = await _setup(hass, pause_mode="stop", addr_play_pause="1/0/1", addr_toggle="1/0/4")
+    await _telegram(hass, "1/0/1", 0)
+    assert len(m["media_stop"]) == 1 and not m["media_pause"]
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.3, "media_duration": 200})
+    await _telegram(hass, "1/0/4", 1)  # Taster bei laufender Wiedergabe
+    assert len(m["media_stop"]) == 2
+
+
+async def test_stop_command_always_stops(hass: HomeAssistant) -> None:
+    _, m = await _setup(hass, pause_mode="pause", addr_stop="1/0/3")
+    await _telegram(hass, "1/0/3", 1)
+    assert len(m["media_stop"]) == 1 and not m["media_pause"]
+
+
+def test_pause_mode_form_default() -> None:
+    from custom_components.knx_media_player.config_flow import _pause_mode_default
+
+    assert _pause_mode_default({}) == "auto"
+    assert _pause_mode_default({"pause_mode": "stop"}) == "stop"
+    assert _pause_mode_default({"stop_instead_of_pause": True}) == "stop"
+    assert _pause_mode_default({"stop_instead_of_pause": False}) == "pause"
+    assert _pause_mode_default({"pause_mode": "stop", "stop_instead_of_pause": False}) == "stop"
+    assert _pause_mode_default({"pause_mode": "kaputt"}) == "auto"
 
 
 async def test_start_volume_and_source(hass: HomeAssistant) -> None:
@@ -160,7 +218,7 @@ async def test_start_volume_and_source(hass: HomeAssistant) -> None:
     assert m["select_source"][-1].data["source"] == "Jazz"
     assert not m["media_play"]
     # läuft schon: keine Änderung von Lautstärke und Quelle, nur Pause
-    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.3})
+    hass.states.async_set(PLAYER, "playing", {"volume_level": 0.3, "media_duration": 200})
     await _telegram(hass, "1/0/4", 1)
     assert len(m["volume_set"]) == 1 and len(m["media_pause"]) == 1
 
@@ -288,7 +346,7 @@ def page(**fields):
         "player_settings", "playback", "start", "volume", "scenes",
         *(f"scene_{n}" for n in range(1, 6)), "status_play", "status_level", "status_text")}
     for key, value in fields.items():
-        if key in ("max_volume", "volume_step", "stop_instead_of_pause"):
+        if key in ("max_volume", "volume_step", "pause_mode"):
             sections["player_settings"][key] = value
         elif key.startswith("scene_"):
             sections[f"scene_{key.split('_')[1]}"][key] = value
@@ -308,7 +366,7 @@ def page(**fields):
             sections["status_text"][key] = value
     sections["player_settings"].setdefault("max_volume", 100)
     sections["player_settings"].setdefault("volume_step", 5)
-    sections["player_settings"].setdefault("stop_instead_of_pause", False)
+    sections["player_settings"].setdefault("pause_mode", "auto")
     return sections
 
 
@@ -369,7 +427,7 @@ async def test_describe_player(hass: HomeAssistant) -> None:
 
     from custom_components.knx_media_player.helpers import describe_player, player_integration_name
 
-    assert await describe_player(hass, "media_player.gibtsnicht") == "media_player.gibtsnicht"
+    assert await describe_player(hass, "media_player.gibtsnicht") == "- **Name:** media_player.gibtsnicht"
     assert await player_integration_name(hass, "media_player.gibtsnicht") is None
 
     sonos = _register_player(hass, "sonos", "buero")
@@ -382,13 +440,16 @@ async def test_describe_player(hass: HomeAssistant) -> None:
     hass.config.language = "de"
     assert await player_integration_name(hass, sonos.entity_id) == "Sonos"
     assert await player_integration_name(hass, ma.entity_id) == "Music Assistant"
-    assert (
-        await describe_player(hass, sonos.entity_id)
-        == "Büro · Sonos · Bereich Arbeitszimmer · media_player.buero"
+    assert await describe_player(hass, sonos.entity_id) == (
+        "- **Name:** Büro\n- **Integration:** Sonos\n- **Bereich:** Arbeitszimmer\n"
+        "- **Entität:** media_player.buero"
     )
-    assert await describe_player(hass, ma.entity_id) == "Küche · Music Assistant · media_player.kueche"
+    # ohne Bereich entfällt die Zeile
+    assert await describe_player(hass, ma.entity_id) == (
+        "- **Name:** Küche\n- **Integration:** Music Assistant\n- **Entität:** media_player.kueche"
+    )
     hass.config.language = "en"
-    assert "Area Arbeitszimmer" in await describe_player(hass, sonos.entity_id)
+    assert "- **Area:** Arbeitszimmer" in await describe_player(hass, sonos.entity_id)
 
 
 async def test_integration_shown_in_dialogs(hass: HomeAssistant) -> None:
@@ -397,7 +458,7 @@ async def test_integration_shown_in_dialogs(hass: HomeAssistant) -> None:
     hass.states.async_set(PLAYER, "idle", {"friendly_name": "Büro"})
     options = await hass.config_entries.options.async_init(entry.entry_id)
     assert "Music Assistant" in options["description_placeholders"]["player_info"]
-    assert options["description_placeholders"]["player"] == PLAYER
+    assert set(options["description_placeholders"]) == {"player_info"}
     reconf = await entry.start_reconfigure_flow(hass)
     assert "Music Assistant" in reconf["description_placeholders"]["player_info"]
 
@@ -700,6 +761,13 @@ async def test_library_options_fall_back_to_empty(hass: HomeAssistant) -> None:
         assert await helpers.async_library_options(hass, "media_player.langsam") == []
 
 
+def _suggested(result, section, field):
+    """Vorbelegung eines Felds der Optionsseite."""
+    marker = next(m for k, m in result["data_schema"].schema.items() if str(k) == section)
+    key = next(k for k in marker.schema.schema if str(k) == field)
+    return key.description["suggested_value"]
+
+
 def _media_selector(result, section, field):
     marker = next(m for k, m in result["data_schema"].schema.items() if str(k) == section)
     return next(v for k, v in marker.schema.schema.items() if str(k) == field)
@@ -962,12 +1030,29 @@ async def test_options_flow_station_field_and_summary(hass: HomeAssistant) -> No
     ]
     assert stations[-1]["label"] == "Radio Browser · Lokal · WDR 2 Münsterland (2)"
     assert _media_selector(result, "scene_4", "scene_4_station").config["custom_value"] is True
-    info = result["description_placeholders"]["media_info"]
-    assert "Wiedergabeoption: Radiosender · WDR 4" in info
-    # ältere Einstellung mit Adresse: Titel steht trotzdem oben
-    assert "Szene 1: Radio Browser · Lokal · WDR 2 Münsterland (2)" in info
-    assert "Szene 3: https://example.org/live.mp3" in info  # frei eingegeben: unverändert
-    assert "Szene 2" not in info  # nur Quelle: zeigt das Feld selbst
+    assert "media_info" not in result["description_placeholders"]
+    # ältere Einstellung mit Adresse: das Feld zeigt gleich den Titel (nummeriert, weil schon vergeben)
+    assert _suggested(result, "scene_1", "scene_1_station") == "WDR 2 Münsterland (2)"
+    # feste Sender und freie Eingaben bleiben unverändert
+    assert _suggested(result, "start", "start_station") == "WDR 4"
+    assert _suggested(result, "scene_3", "scene_3_station") == "https://example.org/live.mp3"
+
+
+async def test_legacy_address_is_saved_as_title(hass: HomeAssistant) -> None:
+    from unittest.mock import patch
+
+    _register_player(hass, "sonos")
+    entry, _ = await _setup(hass, addr_scene="3/0/1", scene_1_station=RB_URI)
+    rb = [{"value": RB_URI, "prefix": "Radio Browser · Lokal", "title": "Hit Radio FFH"}]
+    with patch("custom_components.knx_media_player.helpers.async_radio_browser_options", return_value=rb):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        assert _suggested(result, "scene_1", "scene_1_station") == "Hit Radio FFH"
+        # unverändert speichern: aus der Adresse wird Titel plus Zuordnung
+        done = await hass.config_entries.options.async_configure(
+            result["flow_id"], page(addr_scene="3/0/1", scene_1_station="Hit Radio FFH")
+        )
+    assert done["data"]["scene_1_station"] == "Hit Radio FFH"
+    assert done["data"]["station_uris"] == {"Hit Radio FFH": RB_URI}
 
 
 async def test_station_titles_are_stored_with_their_address(hass: HomeAssistant) -> None:
@@ -1071,22 +1156,6 @@ async def test_unmapped_media_text_is_used_as_typed(hass: HomeAssistant) -> None
     _, m = await _setup(hass, addr_scene="3/0/1", scene_1_media="Radio Paradise")
     await _telegram(hass, "3/0/1", (0,))
     assert m["play_media"][-1].data["media_content_id"] == "Radio Paradise"
-
-
-async def test_summary_precedence_and_empty(hass: HomeAssistant) -> None:
-    from custom_components.knx_media_player.helpers import selected_media_summary
-
-    hass.config.language = "de"
-    assert selected_media_summary(hass, {}, {}) == "noch nichts gewählt"
-    # Sender vor Quelle vor Medium; Quelle gesetzt: Medium wird nicht angezeigt
-    assert selected_media_summary(
-        hass, {"scene_1_source": "Jazz", "scene_1_media": "library://x"}, {}
-    ) == "noch nichts gewählt"
-    assert selected_media_summary(
-        hass, {"scene_1_media": "library://x"}, {"library://x": "Playlist · Rock"}
-    ) == "Szene 1: Playlist · Rock"
-    hass.config.language = "en"
-    assert selected_media_summary(hass, {}, {}) == "nothing selected yet"
 
 
 async def test_scene_with_station_needs_trigger(hass: HomeAssistant) -> None:

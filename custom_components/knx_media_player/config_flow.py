@@ -40,12 +40,17 @@ from .const import (
     CONF_STATUS_SOURCE,
     CONF_STATUS_TITLE,
     CONF_STATUS_VOLUME,
+    CONF_PAUSE_MODE,
     CONF_STOP_INSTEAD,
     CONF_VOLUME_STEP,
     DEFAULT_MAX_VOLUME,
     DEFAULT_VOLUME_STEP,
     DOMAIN,
     MEDIA_TYPES,
+    PAUSE_AUTO,
+    PAUSE_MODES,
+    PAUSE_PAUSE,
+    PAUSE_STOP,
     SCENE_COUNT,
     scene_key,
 )
@@ -61,7 +66,6 @@ from .helpers import (
     drop_unused_fields,
     make_choices,
     player_kind,
-    selected_media_summary,
 )
 from .knx_project import address_label, async_project_addresses
 
@@ -156,6 +160,15 @@ def _address(
     )
 
 
+def _pause_mode_default(defaults: dict[str, Any]) -> str:
+    """Vorgabe für „Pause-Befehl“: gespeichert, sonst aus dem älteren Haken, sonst Automatisch."""
+    if defaults.get(CONF_PAUSE_MODE) in PAUSE_MODES:
+        return defaults[CONF_PAUSE_MODE]
+    if (legacy := defaults.get(CONF_STOP_INSTEAD)) is not None:
+        return PAUSE_STOP if legacy else PAUSE_PAUSE
+    return PAUSE_AUTO
+
+
 def _options_schema(
     defaults: dict[str, Any],
     sources: list[str],
@@ -218,9 +231,13 @@ def _options_schema(
                 vol.Required(
                     CONF_VOLUME_STEP, default=defaults.get(CONF_VOLUME_STEP, DEFAULT_VOLUME_STEP)
                 ): _number(1, 50),
-                vol.Required(
-                    CONF_STOP_INSTEAD, default=bool(defaults.get(CONF_STOP_INSTEAD, False))
-                ): bool,
+                vol.Required(CONF_PAUSE_MODE, default=_pause_mode_default(defaults)): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=PAUSE_MODES,
+                        translation_key="pause_mode",
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
             },
             collapsed=False,
         ),
@@ -477,6 +494,12 @@ class KnxMediaPlayerOptionsFlow(OptionsFlow):
                         data[key] = uris
                 return self.async_create_entry(data=data)
             defaults = flat
+        # Ältere Einstellungen mit Adresse zeigen den Titel, wenn der Sender in der Liste steht
+        for keys, choices in ((_STATION_KEYS, stations), (_MEDIA_KEYS, library)):
+            titles = {uri: title for title, uri in choices.uris.items()}
+            for key in keys:
+                if defaults.get(key) in titles:
+                    defaults[key] = titles[defaults[key]]
         state = self.hass.states.get(player)
         sources = sorted((state.attributes.get("source_list") or []) if state else [])
         return self.async_show_form(
@@ -490,12 +513,5 @@ class KnxMediaPlayerOptionsFlow(OptionsFlow):
                 stations.options,
             ),
             errors=errors,
-            description_placeholders={
-                "player": player,
-                "player_info": await describe_player(self.hass, player),
-                # Titel der gespeicherten Sender und Medien (auch ältere Einstellungen mit Adresse)
-                "media_info": selected_media_summary(
-                    self.hass, dict(entry.options), {**library.labels, **stations.labels}
-                ),
-            },
+            description_placeholders={"player_info": await describe_player(self.hass, player)},
         )
