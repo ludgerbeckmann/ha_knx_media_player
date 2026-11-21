@@ -9,7 +9,14 @@ CONF_NAME = "name"
 CONF_PLAYER = "player"
 CONF_MAX_VOLUME = "max_volume"
 CONF_VOLUME_STEP = "volume_step"
-CONF_STOP_INSTEAD = "stop_instead_of_pause"
+CONF_STOP_INSTEAD = "stop_instead_of_pause"  # älter: Haken „Stoppen statt Pause“, wird von CONF_PAUSE_MODE abgelöst
+CONF_PAUSE_MODE = "pause_mode"
+
+# Was ein Pause-Befehl auslöst
+PAUSE_AUTO = "auto"  # Livestreams (ohne Dauer) stoppen, sonst pausieren
+PAUSE_PAUSE = "pause"
+PAUSE_STOP = "stop"
+PAUSE_MODES = [PAUSE_AUTO, PAUSE_PAUSE, PAUSE_STOP]
 CONF_START_VOLUME = "start_volume"
 CONF_START_SOURCE = "start_source"
 CONF_START_STATION = "start_station"

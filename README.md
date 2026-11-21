@@ -25,7 +25,7 @@ auf Sonos beschränkt.
 | [Sender](#sender) | Feste Senderliste (WDR 2 Münsterland, WDR 4, 1LIVE, Radio WMW, Energy NRW und Digital, Radio Bob und NRW) und Radio Browser, für jeden Player |
 | [Wiedergabeoption](#szenen-und-start-der-wiedergabe) | Startlautstärke und Startsender/-quelle/-medium, damit nie eine alte hohe Lautstärke übernommen wird |
 | [Rückmeldungen](#rückmeldungen-media-player--knx) | Spielt/Pause, Lautstärke, Stumm, Titel, Interpret, Album und Quelle, auch als Antwort auf Lesetelegramme |
-| [Grenzen](#einstellungen-des-players) | Lautstärkegrenze, Lautstärkeschritt, „Stoppen statt Pause“ |
+| [Grenzen](#einstellungen-des-players) | Lautstärkegrenze, Lautstärkeschritt, Verhalten des Pause-Befehls |
 
 ## Installation
 
@@ -48,7 +48,7 @@ Voraussetzungen sind Home Assistant 2025.3 oder neuer, die eingerichtete
 **Pro Media Player gibt es einen Eintrag**; für weitere Lautsprecher den Vorgang wiederholen. Der Eintrag heißt wie
 der Media Player; den Namen änderst du über *Neu konfigurieren*. Player, für die es schon einen Eintrag gibt, fehlen in
 der Auswahl. Vor dem Anlegen zeigt ein Bestätigungsfenster, was du gewählt hast: Name, **Integration** (z. B. Sonos
-oder Music Assistant), Bereich und Entity-ID; dieselbe Zeile steht oben in den Optionen und bei *Neu konfigurieren*.
+oder Music Assistant), Bereich und Entity-ID als Liste; dieselbe Liste steht oben in den Optionen und bei *Neu konfigurieren*.
 Das neue Gerät bekommt beim Anlegen den **Bereich** des Media Players
 (der Entität, sonst ihres Geräts); später änderst du ihn wie bei jedem Gerät selbst, die Integration setzt ihn nicht
 wieder zurück.
@@ -84,8 +84,16 @@ Die Seite prüft die Eingaben (ungültige Gruppenadresse, Szene ohne Auslöser).
 
 ### Einstellungen des Players
 
-*Lautstärkegrenze* (Maximum über KNX), *Lautstärkeschritt* (für Lauter/Leiser und Dimmen) und
-*Stoppen statt Pause* (z. B. für Radiosender).
+*Lautstärkegrenze* (Maximum über KNX), *Lautstärkeschritt* (für Lauter/Leiser und Dimmen) und *Pause-Befehl*.
+
+**Pause-Befehl:** Er legt fest, was ein Pause-Befehl auslöst (Play/Pause-Schalter = 0, Szene „aus“, Taster „Play/Pause umschalten“ bei laufender
+Wiedergabe). Der **Stopp**-Befehl stoppt immer.
+
+- **Automatisch** (Standard): Livestreams stoppen, alles andere pausiert. Als Livestream gilt ein Inhalt, für den der Player keine Dauer meldet (Radio);
+  Titel, Alben und Hörspiele haben eine Dauer und werden pausiert, sodass du später dort weiterhörst.
+- **Immer pausieren** oder **Immer stoppen**: unabhängig vom Inhalt.
+- Ältere Einstellungen („Stoppen statt Pause“ mit oder ohne Haken) bleiben unverändert, bis du die Optionen neu speicherst; dann wird daraus
+  „Immer stoppen“ bzw. „Immer pausieren“, nicht „Automatisch“.
 
 ## Szenen und Start der Wiedergabe
 
@@ -127,8 +135,8 @@ Das Feld **Sender** (Wiedergabeoption und Szenen) gibt es bei **jedem** Player, 
 Nach der Auswahl zeigt das Feld den **Titel** (z. B. „WDR 2 Münsterland“), nicht die Adresse. Beim Speichern merkt sich der
 Eintrag zu jedem gewählten Titel aus Radio Browser oder Music Assistant die Adresse und schlägt sie beim Abspielen dort nach; gespeicherte
 Szenen laufen daher auch ohne Abfrage des Verzeichnisses. Gleiche Titel mit verschiedener Adresse bekommen eine Nummer („Radio XY (2)“).
-Ältere Einstellungen mit einer Adresse im Feld laufen weiter und zeigen die Adresse, bis du neu auswählst. Die **Titel** der gewählten Sender
-und Medien stehen außerdem oben im Dialog („Gewählte Sender und Medien“).
+Ältere Einstellungen mit einer Adresse im Feld laufen weiter. Beim Öffnen der Optionen zeigt das Feld dafür gleich den Titel, wenn der Sender
+in der Liste steht; beim Speichern wird daraus ein normaler Titel.
 
 Ob Titel, Interpret und Cover ankommen, hängt vom Stream und vom Player ab. Direkte Stream-Adressen liefern Titel und Interpret meist aus den Metadaten des Streams; ein Sendersymbol als Cover gibt es dabei oft nicht. Die Adressen großer Anbieter (z. B. `edge68.streamonkey.net`) können sich ändern.
 

@@ -10,11 +10,11 @@
       },
       "confirm": {
         "title": "Media Player bestätigen",
-        "description": "Gewählt: {player_info}\n\nMit OK wird der Eintrag angelegt. Falsch gewählt? Dann schließe das Fenster, es wurde noch nichts angelegt. Der Eintrag heißt wie der Media Player; ändern kannst du das später über „Neu konfigurieren“."
+        "description": "Gewählt:\n\n{player_info}\n\nMit OK wird der Eintrag angelegt. Falsch gewählt? Dann schließe das Fenster, es wurde noch nichts angelegt. Der Eintrag heißt wie der Media Player; ändern kannst du das später über „Neu konfigurieren“."
       },
       "reconfigure": {
         "title": "Media Player ändern",
-        "description": "Aktuell: {player_info}\n\nWähle einen anderen Media Player (z. B. von Sonos zu Music Assistant) oder ändere den Namen. Alle Gruppenadressen und Einstellungen bleiben erhalten. Quellen und Medien, die nur auf dem alten Player existieren, solltest du danach in den Optionen prüfen.",
+        "description": "Aktuell:\n\n{player_info}\n\nWähle einen anderen Media Player (z. B. von Sonos zu Music Assistant) oder ändere den Namen. Alle Gruppenadressen und Einstellungen bleiben erhalten. Quellen und Medien, die nur auf dem alten Player existieren, solltest du danach in den Optionen prüfen.",
         "data": {
           "player": "Media Player",
           "name": "Name (optional)"
@@ -30,20 +30,19 @@
     "step": {
       "init": {
         "title": "KNX Media Player",
-        "description": "Media Player: {player_info}\n\nGewählte Sender und Medien: {media_info}\n\nAlle Einstellungen auf einer Seite. Leere Gruppenadressen werden nicht verwendet.",
+        "description": "{player_info}",
         "sections": {
           "player_settings": {
             "name": "Media Player",
-            "description": "Grenzen und Verhalten für {player}.",
             "data": {
               "max_volume": "Lautstärkegrenze",
               "volume_step": "Lautstärkeschritt",
-              "stop_instead_of_pause": "Stoppen statt Pause"
+              "pause_mode": "Pause-Befehl"
             },
             "data_description": {
               "max_volume": "Höchste Lautstärke, die über KNX eingestellt werden kann.",
               "volume_step": "Schritt für „Lauter/Leiser“ und relatives Dimmen.",
-              "stop_instead_of_pause": "Bei „Pause“ wird die Wiedergabe gestoppt (z. B. für Radiosender)."
+              "pause_mode": "Was ein Pause-Befehl auslöst (Play/Pause-Schalter = 0, Szene „aus“, Taster bei laufender Wiedergabe). „Automatisch“ stoppt Livestreams ohne Dauer (Radio) und pausiert alles andere. Der Stopp-Befehl stoppt immer."
             }
           },
           "playback": {
@@ -235,6 +234,13 @@
     }
   },
   "selector": {
+    "pause_mode": {
+      "options": {
+        "auto": "Automatisch (Livestreams stoppen, sonst pausieren)",
+        "pause": "Immer pausieren",
+        "stop": "Immer stoppen"
+      }
+    },
     "media_type": {
       "options": {
         "auto": "Automatisch",

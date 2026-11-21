@@ -31,3 +31,20 @@ def test_every_field_is_translated() -> None:
             assert translated["name"]
             for field in section_marker.schema.schema:
                 assert str(field) in translated["data"], (language, section_key, field)
+
+
+def test_same_placeholders() -> None:
+    """Jeder Text hat in de und en dieselben Platzhalter (sonst meldet Home Assistant einen Fehler)."""
+    import re
+
+    def strings(data, prefix=""):
+        for key, value in data.items():
+            if isinstance(value, dict):
+                yield from strings(value, f"{prefix}{key}/")
+            else:
+                yield f"{prefix}{key}", value
+
+    de = dict(strings(json.loads((TRANSLATIONS / "de.json").read_text(encoding="utf-8"))))
+    en = dict(strings(json.loads((TRANSLATIONS / "en.json").read_text(encoding="utf-8"))))
+    for path, text in de.items():
+        assert set(re.findall(r"\{(\w+)\}", text)) == set(re.findall(r"\{(\w+)\}", en[path])), path

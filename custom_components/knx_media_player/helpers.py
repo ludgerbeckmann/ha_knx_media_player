@@ -133,17 +133,17 @@ async def player_integration_name(hass: HomeAssistant, entity_id: str) -> str | 
 
 
 async def describe_player(hass: HomeAssistant, entity_id: str) -> str:
-    """Kurzbeschreibung für Dialoge: „Büro · Music Assistant · Bereich Arbeitszimmer · media_player.buero“."""
+    """Kopf der Dialoge als Liste mit Vorsätzen (Name, Integration, Bereich, Entität)."""
     german = (hass.config.language or "").startswith("de")
     state = hass.states.get(entity_id)
-    parts = [state.name if state else entity_id]
+    lines = [f"- **Name:** {state.name if state else entity_id}"]
     if integration := await player_integration_name(hass, entity_id):
-        parts.append(integration)
+        lines.append(f"- **Integration:** {integration}")
     if area := player_area_name(hass, entity_id):
-        parts.append(f"{'Bereich' if german else 'Area'} {area}")
+        lines.append(f"- **{'Bereich' if german else 'Area'}:** {area}")
     if state:
-        parts.append(entity_id)
-    return " · ".join(parts)
+        lines.append(f"- **{'Entität' if german else 'Entity'}:** {entity_id}")
+    return "\n".join(lines)
 
 
 # --- Senderliste: feste Sender und Radio Browser ------------------------------------------
@@ -270,35 +270,3 @@ async def async_station_choices(hass: HomeAssistant) -> Choices:
         uris=radio.uris,
         labels={**radio.labels, **fixed.labels},
     )
-
-
-def selected_media_summary(
-    hass: HomeAssistant, settings: dict[str, Any], labels: dict[str, str]
-) -> str:
-    """Zeile „Wiedergabeoption: Radiosender · WDR 4 · Szene 1: Playlist · …“ mit den gewählten Titeln.
-
-    `labels` übersetzt gespeicherte Werte (Titel, ältere Adressen) in die Beschriftung der Liste;
-    unbekannte Werte (z. B. frei eingegeben) erscheinen unverändert."""
-    german = (hass.config.language or "").startswith("de")
-    parts: list[str] = []
-    places = [
-        (
-            "Wiedergabeoption" if german else "Playback option",
-            CONF_START_STATION, CONF_START_SOURCE, CONF_START_MEDIA,
-        )
-    ]
-    places += [
-        (
-            f"{'Szene' if german else 'Scene'} {n}",
-            scene_key(n, "station"), scene_key(n, "source"), scene_key(n, "media"),
-        )
-        for n in range(1, SCENE_COUNT + 1)
-    ]
-    for place, station_key, source_key, media_key in places:
-        # Vorrang wie beim Abspielen: Sender, dann Quelle (zeigt das Feld selbst an), dann Medium
-        value = settings.get(station_key) or (
-            None if settings.get(source_key) else settings.get(media_key)
-        )
-        if value:
-            parts.append(f"{place}: {labels.get(value, value)}")
-    return " · ".join(parts) if parts else ("noch nichts gewählt" if german else "nothing selected yet")
