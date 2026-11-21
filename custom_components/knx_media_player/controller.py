@@ -220,13 +220,10 @@ def build_commands(get: Any) -> list[dict[str, Any]]:
                     {**base, K_ID: f"scene_{number}:{dpt}:vol", K_ACTION: ACT_VOLUME_SET,
                      K_VOLUME: float(volume)}
                 )
-            # Vorrang: Sender, dann Quelle, dann Medium (es läuft immer nur eines davon)
-            if station:
-                commands.append(
-                    {**base, K_ID: f"scene_{number}:{dpt}:station", K_ACTION: ACT_STATION,
-                     K_STATION: station}
-                )
-            elif source:
+            # Vorrang: Quelle (Sonos-Favorit), dann Medium (Music-Assistant-Bibliothek), dann Sender;
+            # es läuft immer nur eines davon. Die Sonos- und Bibliothekseinträge liefern Cover und
+            # Metadaten, ein direkter Stream oft nicht; der Sender funktioniert dafür bei jedem Player.
+            if source:
                 commands.append(
                     {**base, K_ID: f"scene_{number}:{dpt}:src", K_ACTION: ACT_SOURCE,
                      K_SOURCE_NAME: source}
@@ -236,6 +233,11 @@ def build_commands(get: Any) -> list[dict[str, Any]]:
                     {**base, K_ID: f"scene_{number}:{dpt}:media", K_ACTION: ACT_MEDIA,
                      K_MEDIA: media,
                      K_MEDIA_TYPE: get(scene_key(number, "media_type"), MEDIA_TYPE_AUTO)}
+                )
+            elif station:
+                commands.append(
+                    {**base, K_ID: f"scene_{number}:{dpt}:station", K_ACTION: ACT_STATION,
+                     K_STATION: station}
                 )
         if bit_address:
             commands.append(
@@ -541,20 +543,21 @@ class KnxMediaPlayerController:
             _LOGGER.warning("%s: Sender %r nicht in der Senderliste", self.entry.title, station)
 
     async def _async_start(self, state) -> None:
-        """Wiedergabe starten; spielt der Player noch nicht, zuerst Startlautstärke und Startsender/-quelle/-medium."""
+        """Wiedergabe starten; spielt der Player noch nicht, zuerst Startlautstärke und Startquelle/-medium/-sender."""
         if state.state != STATE_PLAYING:
             volume = self._get(CONF_START_VOLUME)
             if volume is not None:
                 await self._async_set_volume(float(volume))
-            if station := self._get(CONF_START_STATION):
-                await self._async_play_station(station)
-                return
+            # Vorrang wie in den Szenen: Quelle, dann Medium, dann Sender
             source = self._get(CONF_START_SOURCE)
             if source:
                 await self._async_player_call("select_source", source=source)
                 return
             if media := self._get(CONF_START_MEDIA):
                 await self._async_play_media(self._media_address(media), self._get(CONF_START_MEDIA_TYPE))
+                return
+            if station := self._get(CONF_START_STATION):
+                await self._async_play_station(station)
                 return
         await self._async_player_call("media_play")
 
