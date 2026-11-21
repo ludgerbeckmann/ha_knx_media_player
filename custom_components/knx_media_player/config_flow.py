@@ -247,9 +247,6 @@ def _options_schema(
                 vol.Optional(
                     CONF_START_VOLUME, description=_suggest(CONF_START_VOLUME, defaults)
                 ): _number(0, 100),
-                vol.Optional(
-                    CONF_START_STATION, description=_suggest(CONF_START_STATION, defaults)
-                ): station,
                 **(
                     {
                         vol.Optional(
@@ -272,6 +269,9 @@ def _options_schema(
                     if show_media
                     else {}
                 ),
+                vol.Optional(
+                    CONF_START_STATION, description=_suggest(CONF_START_STATION, defaults)
+                ): station,
             }
         ),
         vol.Required(SECTION_VOLUME): _section(_addresses(_VOLUME_FIELDS)),
@@ -292,7 +292,6 @@ def _options_schema(
         )
         sections[vol.Required(f"scene_{number}")] = _section(
             {
-                vol.Optional(station_key, description=_suggest(station_key, defaults)): station,
                 **(
                     {vol.Optional(src_key, description=_suggest(src_key, defaults)): source}
                     if show_source
@@ -306,6 +305,7 @@ def _options_schema(
                     if show_media
                     else {}
                 ),
+                vol.Optional(station_key, description=_suggest(station_key, defaults)): station,
                 vol.Optional(vol_key, description=_suggest(vol_key, defaults)): _number(0, 100),
                 **_addresses([addr_key]),
             }

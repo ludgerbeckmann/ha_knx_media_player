@@ -493,6 +493,21 @@ async def test_options_flow(hass: HomeAssistant) -> None:
     assert entry.options == data
 
 
+async def test_playing_options_field_order(hass: HomeAssistant) -> None:
+    from custom_components.knx_media_player.config_flow import _options_schema
+
+    schema = _options_schema({}, [], [], None, None, [])
+    # Quelle, Medium (mit Typ), dann Sender: wie der Vorrang beim Abspielen
+    fields = {str(sec): [str(f) for f in m.schema.schema] for sec, m in schema.schema.items()}
+    assert fields["start"] == [
+        "start_volume", "start_source", "start_media", "start_media_type", "start_station"
+    ]
+    assert fields["scene_1"] == [
+        "scene_1_source", "scene_1_media", "scene_1_media_type", "scene_1_station",
+        "scene_1_volume", "scene_1_address",
+    ]
+
+
 async def test_playback_field_order(hass: HomeAssistant) -> None:
     from custom_components.knx_media_player.config_flow import _options_schema
 
@@ -851,20 +866,21 @@ def test_station_list_is_complete() -> None:
     assert all(url.startswith("https://") for url in STATIONS.values())
 
 
-def test_scene_precedence_station_source_media() -> None:
+def test_scene_precedence_source_media_station() -> None:
     values = {
         "addr_scene": "3/0/1",
         "scene_1_station": "WDR 4", "scene_1_source": "Jazz", "scene_1_media": "library://x",
         "scene_2_source": "Jazz", "scene_2_media": "library://x",
-        "scene_3_media": "library://x",
+        "scene_3_media": "library://x", "scene_3_station": "WDR 4",
+        "scene_4_station": "WDR 4",
     }
     get = lambda key, default=None: values.get(key, default)  # noqa: E731
     actions = {}
     for command in build_commands(get):
         if command.get("scene"):
             actions.setdefault(command["scene"], []).append(command["action"])
-    # es läuft immer nur eines: Sender vor Quelle vor Medium
-    assert actions == {1: ["station"], 2: ["source"], 3: ["media"]}
+    # es läuft immer nur eines: Quelle vor Medium vor Sender
+    assert actions == {1: ["source"], 2: ["source"], 3: ["media"], 4: ["station"]}
 
 
 async def test_fixed_station_scene_and_start(hass: HomeAssistant) -> None:
@@ -883,13 +899,25 @@ async def test_fixed_station_scene_and_start(hass: HomeAssistant) -> None:
     assert not m["media_play"]
 
 
-async def test_station_beats_source_and_media_at_start(hass: HomeAssistant) -> None:
+async def test_source_beats_media_and_station_at_start(hass: HomeAssistant) -> None:
     _, m = await _setup(
         hass, start_station="WDR 4", start_source="Jazz", start_media="x", addr_toggle="1/0/4"
     )
     await _telegram(hass, "1/0/4", 1)
-    assert m["play_media"][-1].data["media_content_id"] == WDR4
-    assert not m["select_source"]
+    assert m["select_source"][-1].data["source"] == "Jazz"
+    assert not m["play_media"]
+
+
+async def test_media_beats_station_at_start(hass: HomeAssistant) -> None:
+    _, m = await _setup(hass, start_station="WDR 4", start_media="Radio Paradise", addr_toggle="1/0/4")
+    await _telegram(hass, "1/0/4", 1)
+    assert [c.data["media_content_id"] for c in m["play_media"]] == ["Radio Paradise"]
+
+
+async def test_station_plays_without_source_and_media(hass: HomeAssistant) -> None:
+    _, m = await _setup(hass, start_station="WDR 4", addr_toggle="1/0/4")
+    await _telegram(hass, "1/0/4", 1)
+    assert [c.data["media_content_id"] for c in m["play_media"]] == [WDR4]
 
 
 @pytest.mark.parametrize("platform", ["sonos", "music_assistant"])

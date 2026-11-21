@@ -117,7 +117,9 @@ mit Quelle, Medium oder Lautstärke braucht die Szenenadresse oder eine eigene 1
   Eigene Eingaben (Alben, Interpreten, Podcasts, Adressen von Spotify) sind weiter möglich. Die Liste wird beim Öffnen
   des Dialogs nur gelesen, höchstens 500 Einträge je Art. Ist der Player nicht erreichbar oder dauert die Abfrage
   länger als etwa 10 Sekunden, bleibt „Medium“ ein Textfeld.
-- **Vorrang:** Sind mehrere gesetzt, läuft nur eines: Sender, dann Quelle, dann Medium.
+- **Vorrang:** Sind mehrere gesetzt, läuft nur eines: **Quelle, dann Medium, dann Sender.** Die Sonos-Favoriten (Quelle) und die Music-Assistant-Bibliothek
+  (Medium) liefern Cover, Titel und Interpret mit; ein direkter Stream oft nicht. Der Sender funktioniert dafür bei jedem Player und ist die Wahl,
+  wenn es keinen Favoriten oder kein Bibliotheksobjekt gibt. Die Felder stehen im Dialog in dieser Reihenfolge.
 - **Der Dialog zeigt nur die passenden Felder:** Bei einem **Sonos**-Player gibt es nur die *Quelle* (Favoriten und
   Playlists aus der Quellenliste des Players), bei **Music Assistant** nur *Medium* und *Typ*. Bei jedem anderen Player
   stehen beide zur Wahl. Erkannt wird das an der Integration, die den Media Player bereitstellt. Beim Wechsel des
