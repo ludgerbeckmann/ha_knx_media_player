@@ -103,9 +103,7 @@ ACT_VOLUME_UP = "volume_up"
 ACT_VOLUME_DOWN = "volume_down"
 ACT_VOLUME_DIM = "volume_dim"
 ACT_MUTE_SET = "mute_set"
-ACT_SOURCE = "source"
-ACT_STATION = "station"
-ACT_MEDIA = "media"
+ACT_PLAY_CONTENT = "play_content"  # Quelle, sonst Medium, sonst Sender (mit Ersatz)
 
 # Quellen der Rückmeldungen
 SRC_PLAYING = "playing"

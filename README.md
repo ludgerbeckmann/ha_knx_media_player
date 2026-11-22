@@ -120,6 +120,11 @@ mit Quelle, Medium oder Lautstärke braucht die Szenenadresse oder eine eigene 1
 - **Vorrang:** Sind mehrere gesetzt, läuft nur eines: **Quelle, dann Medium, dann Sender.** Die Sonos-Favoriten (Quelle) und die Music-Assistant-Bibliothek
   (Medium) liefern Cover, Titel und Interpret mit; ein direkter Stream oft nicht. Der Sender funktioniert dafür bei jedem Player und ist die Wahl,
   wenn es keinen Favoriten oder kein Bibliotheksobjekt gibt. Die Felder stehen im Dialog in dieser Reihenfolge.
+- **Ersatz:** Lässt sich der Vorrangige nicht starten, geht es mit dem Nächsten weiter, das du gesetzt hast. Typisch ist ein **Sonos-Favorit, der fehlt**, weil Sonos nach einem
+  Neustart von Home Assistant die Favoritenliste nicht geladen hat (im Protokoll steht dann „Could not find a Sonos favorite“): Mit einem zusätzlich gesetzten
+  Sender spielt dann der Sender, zwar ohne Cover, aber es läuft. Im Protokoll steht eine Warnung mit Eintrag, Player, dem Grund und dem Ersatz, zum Beispiel
+  „Zimmer Marike: Quelle 'WDR2 Münsterland' lässt sich auf media_player.zimmer_marike nicht starten (…); weiter mit Sender 'WDR 4'“. Ist nichts weiter gesetzt, steht
+  „kein Ersatz eingestellt“ und es wird nichts abgespielt. Der Sonos-Favorit wird dabei nicht verdrängt: Solange er sich starten lässt, spielt immer er.
 - **Der Dialog zeigt nur die passenden Felder:** Bei einem **Sonos**-Player gibt es nur die *Quelle* (Favoriten und
   Playlists aus der Quellenliste des Players), bei **Music Assistant** nur *Medium* und *Typ*. Bei jedem anderen Player
   stehen beide zur Wahl. Erkannt wird das an der Integration, die den Media Player bereitstellt. Beim Wechsel des
