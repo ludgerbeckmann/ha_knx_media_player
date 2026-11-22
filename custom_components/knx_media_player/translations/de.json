@@ -73,9 +73,9 @@
             },
             "data_description": {
               "start_volume": "Wird vor dem Start gesetzt, begrenzt durch die Lautstärkegrenze.",
-              "start_station": "Feste Senderliste und, falls eingerichtet, Radio Browser (lokal und beliebt). Läuft nur, wenn weder Quelle noch Medium gesetzt sind. Direkte Streams liefern oft kein Cover.",
-              "start_source": "Spielt diese Quelle (z. B. einen Sonos-Favoriten) mit Cover und Titel, statt nur fortzusetzen. Hat Vorrang vor Medium und Sender.",
-              "start_media": "Name oder URI einer Playlist, eines Albums, Senders usw. Wird nur genutzt, wenn keine Quelle gesetzt ist; hat Vorrang vor dem Sender.",
+              "start_station": "Feste Senderliste und, falls eingerichtet, Radio Browser (lokal und beliebt). Läuft, wenn weder Quelle noch Medium gesetzt sind oder diese nicht starten (Ersatz). Direkte Streams liefern oft kein Cover.",
+              "start_source": "Spielt diese Quelle (z. B. einen Sonos-Favoriten) mit Cover und Titel, statt nur fortzusetzen. Hat Vorrang vor Medium und Sender; startet sie nicht (z. B. Favorit fehlt), spielt Medium oder Sender als Ersatz.",
+              "start_media": "Name oder URI einer Playlist, eines Albums, Senders usw. Wird genutzt, wenn keine Quelle gesetzt ist oder sie nicht startet; hat Vorrang vor dem Sender.",
               "start_media_type": "Leer = automatisch."
             }
           },
@@ -151,9 +151,9 @@
               "scene_1_address": "1-Bit-Adresse"
             },
             "data_description": {
-              "scene_1_station": "Feste Senderliste und Radio Browser. Läuft nur, wenn weder Quelle noch Medium gesetzt sind.",
-              "scene_1_source": "Aus den Quellen des Players wählen oder den Namen eintippen. Hat Vorrang vor Medium und Sender.",
-              "scene_1_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist; hat Vorrang vor dem Sender.",
+              "scene_1_station": "Feste Senderliste und Radio Browser. Läuft, wenn weder Quelle noch Medium gesetzt sind oder diese nicht starten (Ersatz).",
+              "scene_1_source": "Aus den Quellen des Players wählen oder den Namen eintippen. Hat Vorrang vor Medium und Sender; startet sie nicht, spielt Medium oder Sender als Ersatz.",
+              "scene_1_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird genutzt, wenn keine Quelle gesetzt ist oder sie nicht startet; hat Vorrang vor dem Sender.",
               "scene_1_media_type": "Leer = automatisch."
             }
           },
@@ -169,9 +169,9 @@
               "scene_2_address": "1-Bit-Adresse"
             },
             "data_description": {
-              "scene_2_station": "Feste Senderliste und Radio Browser. Läuft nur, wenn weder Quelle noch Medium gesetzt sind.",
-              "scene_2_source": "Aus den Quellen des Players wählen oder den Namen eintippen. Hat Vorrang vor Medium und Sender.",
-              "scene_2_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist; hat Vorrang vor dem Sender.",
+              "scene_2_station": "Feste Senderliste und Radio Browser. Läuft, wenn weder Quelle noch Medium gesetzt sind oder diese nicht starten (Ersatz).",
+              "scene_2_source": "Aus den Quellen des Players wählen oder den Namen eintippen. Hat Vorrang vor Medium und Sender; startet sie nicht, spielt Medium oder Sender als Ersatz.",
+              "scene_2_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird genutzt, wenn keine Quelle gesetzt ist oder sie nicht startet; hat Vorrang vor dem Sender.",
               "scene_2_media_type": "Leer = automatisch."
             }
           },
@@ -187,9 +187,9 @@
               "scene_3_address": "1-Bit-Adresse"
             },
             "data_description": {
-              "scene_3_station": "Feste Senderliste und Radio Browser. Läuft nur, wenn weder Quelle noch Medium gesetzt sind.",
-              "scene_3_source": "Aus den Quellen des Players wählen oder den Namen eintippen. Hat Vorrang vor Medium und Sender.",
-              "scene_3_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist; hat Vorrang vor dem Sender.",
+              "scene_3_station": "Feste Senderliste und Radio Browser. Läuft, wenn weder Quelle noch Medium gesetzt sind oder diese nicht starten (Ersatz).",
+              "scene_3_source": "Aus den Quellen des Players wählen oder den Namen eintippen. Hat Vorrang vor Medium und Sender; startet sie nicht, spielt Medium oder Sender als Ersatz.",
+              "scene_3_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird genutzt, wenn keine Quelle gesetzt ist oder sie nicht startet; hat Vorrang vor dem Sender.",
               "scene_3_media_type": "Leer = automatisch."
             }
           },
@@ -205,9 +205,9 @@
               "scene_4_address": "1-Bit-Adresse"
             },
             "data_description": {
-              "scene_4_station": "Feste Senderliste und Radio Browser. Läuft nur, wenn weder Quelle noch Medium gesetzt sind.",
-              "scene_4_source": "Aus den Quellen des Players wählen oder den Namen eintippen. Hat Vorrang vor Medium und Sender.",
-              "scene_4_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist; hat Vorrang vor dem Sender.",
+              "scene_4_station": "Feste Senderliste und Radio Browser. Läuft, wenn weder Quelle noch Medium gesetzt sind oder diese nicht starten (Ersatz).",
+              "scene_4_source": "Aus den Quellen des Players wählen oder den Namen eintippen. Hat Vorrang vor Medium und Sender; startet sie nicht, spielt Medium oder Sender als Ersatz.",
+              "scene_4_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird genutzt, wenn keine Quelle gesetzt ist oder sie nicht startet; hat Vorrang vor dem Sender.",
               "scene_4_media_type": "Leer = automatisch."
             }
           },
@@ -223,9 +223,9 @@
               "scene_5_address": "1-Bit-Adresse"
             },
             "data_description": {
-              "scene_5_station": "Feste Senderliste und Radio Browser. Läuft nur, wenn weder Quelle noch Medium gesetzt sind.",
-              "scene_5_source": "Aus den Quellen des Players wählen oder den Namen eintippen. Hat Vorrang vor Medium und Sender.",
-              "scene_5_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird nur genutzt, wenn keine Quelle gesetzt ist; hat Vorrang vor dem Sender.",
+              "scene_5_station": "Feste Senderliste und Radio Browser. Läuft, wenn weder Quelle noch Medium gesetzt sind oder diese nicht starten (Ersatz).",
+              "scene_5_source": "Aus den Quellen des Players wählen oder den Namen eintippen. Hat Vorrang vor Medium und Sender; startet sie nicht, spielt Medium oder Sender als Ersatz.",
+              "scene_5_media": "Name oder URI einer Playlist, eines Albums, Senders usw. (z. B. library://playlist/1). Wird genutzt, wenn keine Quelle gesetzt ist oder sie nicht startet; hat Vorrang vor dem Sender.",
               "scene_5_media_type": "Leer = automatisch."
             }
           }

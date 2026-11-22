@@ -26,15 +26,13 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    ACT_MEDIA,
     ACT_MUTE_SET,
     ACT_NEXT,
     ACT_PAUSE,
     ACT_PLAY,
     ACT_PLAY_PAUSE,
+    ACT_PLAY_CONTENT,
     ACT_PREVIOUS,
-    ACT_SOURCE,
-    ACT_STATION,
     ACT_STOP,
     ACT_VOLUME_DIM,
     ACT_VOLUME_DOWN,
@@ -220,23 +218,13 @@ def build_commands(get: Any) -> list[dict[str, Any]]:
                     {**base, K_ID: f"scene_{number}:{dpt}:vol", K_ACTION: ACT_VOLUME_SET,
                      K_VOLUME: float(volume)}
                 )
-            # Vorrang: Quelle (Sonos-Favorit), dann Medium (Music-Assistant-Bibliothek), dann Sender;
-            # es läuft immer nur eines davon. Die Sonos- und Bibliothekseinträge liefern Cover und
-            # Metadaten, ein direkter Stream oft nicht; der Sender funktioniert dafür bei jedem Player.
-            if source:
+            # Ein Befehl mit allem, was gesetzt ist. Vorrang und Ersatz: Quelle (Sonos-Favorit), dann Medium
+            # (Music-Assistant-Bibliothek), dann Sender; siehe `_async_play_content`.
+            if source or media or station:
                 commands.append(
-                    {**base, K_ID: f"scene_{number}:{dpt}:src", K_ACTION: ACT_SOURCE,
-                     K_SOURCE_NAME: source}
-                )
-            elif media:
-                commands.append(
-                    {**base, K_ID: f"scene_{number}:{dpt}:media", K_ACTION: ACT_MEDIA,
-                     K_MEDIA: media,
-                     K_MEDIA_TYPE: get(scene_key(number, "media_type"), MEDIA_TYPE_AUTO)}
-                )
-            elif station:
-                commands.append(
-                    {**base, K_ID: f"scene_{number}:{dpt}:station", K_ACTION: ACT_STATION,
+                    {**base, K_ID: f"scene_{number}:{dpt}:content", K_ACTION: ACT_PLAY_CONTENT,
+                     K_SOURCE_NAME: source, K_MEDIA: media,
+                     K_MEDIA_TYPE: get(scene_key(number, "media_type"), MEDIA_TYPE_AUTO),
                      K_STATION: station}
                 )
         if bit_address:
@@ -351,16 +339,28 @@ class KnxMediaPlayerController:
 
     # --- Dienstaufrufe ---------------------------------------------------------
 
-    async def _async_call(self, domain: str, service: str, data: dict[str, Any]) -> None:
-        """Dienst aufrufen; ein Fehler darf die übrige Verarbeitung nicht stoppen."""
+    async def _async_call(
+        self, domain: str, service: str, data: dict[str, Any], *, quiet: bool = False
+    ) -> Exception | None:
+        """Dienst aufrufen; ein Fehler darf die übrige Verarbeitung nicht stoppen.
+
+        Gibt None bei Erfolg zurück, sonst den Fehler. Mit `quiet` meldet der Aufrufer ihn selbst
+        (z. B. beim Wechsel auf einen Ersatz), hier steht er nur im Debug-Protokoll."""
         try:
             await self.hass.services.async_call(domain, service, data, blocking=True)
-        except Exception:  # noqa: BLE001
-            _LOGGER.exception("Aufruf von %s.%s fehlgeschlagen", domain, service)
+        except Exception as err:  # noqa: BLE001
+            if quiet:
+                _LOGGER.debug("Aufruf von %s.%s fehlgeschlagen", domain, service, exc_info=True)
+            else:
+                _LOGGER.exception("Aufruf von %s.%s fehlgeschlagen", domain, service)
+            return err
+        return None
 
-    async def _async_player_call(self, service: str, **data: Any) -> None:
-        await self._async_call(
-            "media_player", service, {"entity_id": self.player, **data}
+    async def _async_player_call(
+        self, service: str, *, quiet: bool = False, **data: Any
+    ) -> Exception | None:
+        return await self._async_call(
+            "media_player", service, {"entity_id": self.player, **data}, quiet=quiet
         )
 
     # --- KNX-Anbindung ---------------------------------------------------------
@@ -503,44 +503,88 @@ class KnxMediaPlayerController:
         stop = mode == PAUSE_STOP or (mode == PAUSE_AUTO and self._is_live_stream(state))
         await self._async_player_call("media_stop" if stop else "media_pause")
 
-    async def _async_play_media(self, media: str, media_type: str | None) -> None:
-        """Medium (Name, URI oder Sonos-/MA-Favorit) über `media_player.play_media` abspielen."""
+    async def _async_play_media(self, media: str, media_type: str | None) -> Exception | None:
+        """Medium (Name, URI oder Sonos-/MA-Favorit) über `media_player.play_media` abspielen.
+
+        Gibt None bei Erfolg zurück, sonst den Fehler (siehe `_async_play_content`)."""
         content_type = (
             PLAY_MEDIA_AUTO_TYPE if media_type in (None, MEDIA_TYPE_AUTO) else media_type
         )
-        await self._async_player_call(
-            "play_media", media_content_id=media, media_content_type=content_type
+        return await self._async_player_call(
+            "play_media", quiet=True, media_content_id=media, media_content_type=content_type
         )
 
     def _media_address(self, value: str) -> str:
         """Adresse eines gewählten Medientitels (Music Assistant); sonst der Wert selbst (Name oder Adresse)."""
         return (self._get(CONF_MEDIA_URIS) or {}).get(value, value)
 
-    async def _async_play_station(self, station: str) -> None:
-        """Sender abspielen: feste Liste (Name), Radio Browser (Titel oder `media-source://…`) oder eine Adresse."""
+    async def _async_play_station(self, station: str) -> Exception | None:
+        """Sender abspielen: feste Liste (Name), Radio Browser (Titel oder `media-source://…`) oder eine Adresse.
+
+        Gibt None bei Erfolg zurück, sonst den Fehler (siehe `_async_play_content`)."""
         if url := STATIONS.get(station):
-            await self._async_play_media(url, None)
-            return
+            return await self._async_play_media(url, None)
         station = (self._get(CONF_STATION_URIS) or {}).get(station, station)
         if media_source.is_media_source_id(station):
             if player_kind(self.hass, self.player) in (KIND_SONOS, KIND_MUSIC_ASSISTANT):
                 # Sonos (behandelt Radio Browser als Radio) und Music Assistant lösen selbst auf
-                await self._async_play_media(station, None)
-                return
+                return await self._async_play_media(station, None)
             try:
                 media = await media_source.async_resolve_media(self.hass, station, self.player)
-            except Exception:  # noqa: BLE001 - Sender nicht mehr verfügbar o. ä.
-                _LOGGER.exception("Sender %s nicht auflösbar", station)
-                return
-            await self._async_player_call(
+            except Exception as err:  # noqa: BLE001 - Sender nicht mehr verfügbar o. ä.
+                _LOGGER.debug("Sender %s nicht auflösbar", station, exc_info=True)
+                return err
+            return await self._async_player_call(
                 "play_media",
+                quiet=True,
                 media_content_id=async_process_play_media_url(self.hass, media.url),
                 media_content_type=media.mime_type or PLAY_MEDIA_AUTO_TYPE,
             )
-        elif station.startswith(("http://", "https://")):
-            await self._async_play_media(station, None)
-        else:
-            _LOGGER.warning("%s: Sender %r nicht in der Senderliste", self.entry.title, station)
+        if station.startswith(("http://", "https://")):
+            return await self._async_play_media(station, None)
+        return ValueError("nicht in der Senderliste")
+
+    async def _async_play_content(
+        self,
+        state,
+        source: str | None,
+        media: str | None,
+        media_type: str | None,
+        station: str | None,
+    ) -> bool:
+        """Inhalt starten: Quelle, sonst Medium, sonst Sender.
+
+        Die Reihenfolge ist der Vorrang: Sonos-Favoriten (Quelle) und die Music-Assistant-Bibliothek
+        (Medium) liefern Cover und Metadaten, ein direkter Stream oft nicht. Lässt sich ein Eintrag
+        nicht starten (z. B. Favorit fehlt, weil Sonos die Liste nicht geladen hat), geht es mit dem
+        nächsten gesetzten weiter; der Grund steht als Warnung im Protokoll."""
+        steps = [
+            (kind, value)
+            for kind, value in (("Quelle", source), ("Medium", media), ("Sender", station))
+            if value
+        ]
+        for index, (kind, value) in enumerate(steps):
+            if kind == "Quelle":
+                sources = state.attributes.get("source_list") or []
+                if sources and value not in sources:
+                    error: Exception | None = ValueError(
+                        "nicht in der Quellenliste des Players, Sonos hat die Favoriten evtl. noch nicht geladen"
+                    )
+                else:
+                    error = await self._async_player_call("select_source", quiet=True, source=value)
+            elif kind == "Medium":
+                error = await self._async_play_media(self._media_address(value), media_type)
+            else:
+                error = await self._async_play_station(value)
+            if error is None:
+                return True
+            later = steps[index + 1 :]
+            _LOGGER.warning(
+                "%s: %s %r lässt sich auf %s nicht starten (%s); %s",
+                self.entry.title, kind, value, self.player, error,
+                f"weiter mit {later[0][0]} {later[0][1]!r}" if later else "kein Ersatz eingestellt",
+            )
+        return False
 
     async def _async_start(self, state) -> None:
         """Wiedergabe starten; spielt der Player noch nicht, zuerst Startlautstärke und Startquelle/-medium/-sender."""
@@ -548,16 +592,13 @@ class KnxMediaPlayerController:
             volume = self._get(CONF_START_VOLUME)
             if volume is not None:
                 await self._async_set_volume(float(volume))
-            # Vorrang wie in den Szenen: Quelle, dann Medium, dann Sender
             source = self._get(CONF_START_SOURCE)
-            if source:
-                await self._async_player_call("select_source", source=source)
-                return
-            if media := self._get(CONF_START_MEDIA):
-                await self._async_play_media(self._media_address(media), self._get(CONF_START_MEDIA_TYPE))
-                return
-            if station := self._get(CONF_START_STATION):
-                await self._async_play_station(station)
+            media = self._get(CONF_START_MEDIA)
+            station = self._get(CONF_START_STATION)
+            if source or media or station:
+                await self._async_play_content(
+                    state, source, media, self._get(CONF_START_MEDIA_TYPE), station
+                )
                 return
         await self._async_player_call("media_play")
 
@@ -591,13 +632,13 @@ class KnxMediaPlayerController:
             await self._async_set_volume(current + step if up else current - step)
         elif action == ACT_MUTE_SET:
             await self._async_player_call("volume_mute", is_volume_muted=bool(value))
-        elif action == ACT_STATION and command.get(K_STATION):
-            await self._async_play_station(command[K_STATION])
-        elif action == ACT_SOURCE and command.get(K_SOURCE_NAME):
-            await self._async_player_call("select_source", source=command[K_SOURCE_NAME])
-        elif action == ACT_MEDIA and command.get(K_MEDIA):
-            await self._async_play_media(
-                self._media_address(command[K_MEDIA]), command.get(K_MEDIA_TYPE)
+        elif action == ACT_PLAY_CONTENT:
+            await self._async_play_content(
+                state,
+                command.get(K_SOURCE_NAME),
+                command.get(K_MEDIA),
+                command.get(K_MEDIA_TYPE),
+                command.get(K_STATION),
             )
 
     # --- Rückmeldungen (Media Player -> KNX) -----------------------------------

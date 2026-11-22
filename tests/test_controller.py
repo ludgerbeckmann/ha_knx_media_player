@@ -62,8 +62,8 @@ def test_build_commands_and_status() -> None:
     by = {(c["address"], c["action"], c.get("when"), c.get("scene")) for c in build_commands(get)}
     assert ("1/0/1", "play", "on", None) in by and ("1/0/1", "pause", "off", None) in by
     assert ("1/0/2", "volume_dim", None, None) in by
-    assert ("2/0/1", "source", None, 2) in by and ("2/0/1", "volume_set", None, 2) in by
-    assert ("2/1/2", "source", "on", None) in by and ("2/1/2", "pause", "off", None) in by
+    assert ("2/0/1", "play_content", None, 2) in by and ("2/0/1", "volume_set", None, 2) in by
+    assert ("2/1/2", "play_content", "on", None) in by and ("2/1/2", "pause", "off", None) in by
     statuses = {s["address"]: s for s in build_status(get)}
     assert statuses["5/0/4"]["idle_text"] == "Pause" and "idle_text" not in statuses["5/0/1"]
     assert build_commands(lambda key, default=None: default) == []
@@ -866,21 +866,125 @@ def test_station_list_is_complete() -> None:
     assert all(url.startswith("https://") for url in STATIONS.values())
 
 
-def test_scene_precedence_source_media_station() -> None:
+def test_scene_command_carries_all_contents() -> None:
     values = {
         "addr_scene": "3/0/1",
         "scene_1_station": "WDR 4", "scene_1_source": "Jazz", "scene_1_media": "library://x",
-        "scene_2_source": "Jazz", "scene_2_media": "library://x",
-        "scene_3_media": "library://x", "scene_3_station": "WDR 4",
-        "scene_4_station": "WDR 4",
+        "scene_2_station": "WDR 4",
+        "scene_3_volume": 10,
     }
     get = lambda key, default=None: values.get(key, default)  # noqa: E731
-    actions = {}
+    commands = {}
     for command in build_commands(get):
         if command.get("scene"):
-            actions.setdefault(command["scene"], []).append(command["action"])
-    # es läuft immer nur eines: Quelle vor Medium vor Sender
-    assert actions == {1: ["source"], 2: ["source"], 3: ["media"], 4: ["station"]}
+            commands.setdefault(command["scene"], []).append(command)
+    # je Szene höchstens ein Befehl mit allem Gesetzten; Vorrang und Ersatz entscheidet der Controller
+    one = commands[1]
+    assert [c["action"] for c in one] == ["play_content"]
+    assert (one[0]["source_name"], one[0]["media"], one[0]["station"]) == ("Jazz", "library://x", "WDR 4")
+    assert [c["action"] for c in commands[2]] == ["play_content"] and commands[2][0]["source_name"] is None
+    assert [c["action"] for c in commands[3]] == ["volume_set"]  # nur Lautstärke: kein Inhalt
+
+
+# --- Ersatz, wenn die Quelle nicht startet ---------------------------------------------
+
+
+def _own_logs(caplog, *levels):
+    """Meldungen dieser Integration (ohne den Hinweis von Home Assistant auf eine nicht geprüfte Integration)."""
+    return [
+        r for r in caplog.records
+        if r.name.startswith("custom_components.knx_media_player") and r.levelname in levels
+    ]
+
+
+def _failing_service(hass, service, message):
+    """Dienst `media_player.<service>` ersetzen: er wirft einen Fehler und zählt die Aufrufe."""
+    from homeassistant.exceptions import ServiceValidationError
+
+    calls = []
+
+    async def handler(call):
+        calls.append(call)
+        raise ServiceValidationError(message)
+
+    hass.services.async_register("media_player", service, handler)
+    return calls
+
+
+async def test_source_missing_in_list_falls_back_to_station(hass: HomeAssistant, caplog) -> None:
+    # Sonos hat die Favoriten nicht geladen: die Liste kennt nur den Eingang, nicht den Favoriten
+    _, m = await _setup(
+        hass, attrs={"source_list": ["TV"]}, start_source="WDR2 Münsterland",
+        start_station="WDR 4", addr_toggle="1/0/4",
+    )
+    await _telegram(hass, "1/0/4", 1)
+    assert not m["select_source"]  # gar nicht erst versucht
+    assert m["play_media"][-1].data["media_content_id"] == WDR4
+    warning = _own_logs(caplog, "WARNING")[0].getMessage()
+    # Eintrag, Player, Quelle und Ersatz stehen drin
+    for part in ("Wohnzimmer", PLAYER, "'WDR2 Münsterland'", "Quellenliste", "weiter mit Sender 'WDR 4'"):
+        assert part in warning
+
+
+async def test_source_call_fails_falls_back(hass: HomeAssistant, caplog) -> None:
+    _, m = await _setup(
+        hass, addr_scene="3/0/1", scene_1_source="Radio", scene_1_station="Radio Bob", scene_1_volume=20,
+    )
+    calls = _failing_service(hass, "select_source", "Could not find a Sonos favorite: Radio")
+    await _telegram(hass, "3/0/1", (0,))
+    assert len(calls) == 1  # Quelle wurde versucht
+    assert m["volume_set"][-1].data["volume_level"] == 0.2  # Lautstärke vor dem Inhalt
+    assert m["play_media"][-1].data["media_content_id"].startswith("https://streams.radiobob.de/bob-national/")
+    assert "Could not find a Sonos favorite" in caplog.text and "weiter mit Sender" in caplog.text
+
+
+async def test_source_works_no_fallback(hass: HomeAssistant, caplog) -> None:
+    _, m = await _setup(hass, addr_scene="3/0/1", scene_1_source="Jazz", scene_1_station="WDR 4")
+    await _telegram(hass, "3/0/1", (0,))
+    assert m["select_source"][-1].data["source"] == "Jazz"
+    assert not m["play_media"]  # Sender nur als Ersatz
+    assert not _own_logs(caplog, "WARNING", "ERROR")
+
+
+async def test_fallback_chain_source_media_station(hass: HomeAssistant, caplog) -> None:
+    _, m = await _setup(
+        hass, addr_scene="3/0/1", scene_1_source="Jazz", scene_1_media="library://x",
+        scene_1_station="WDR 4",
+    )
+    source_calls = _failing_service(hass, "select_source", "kein Favorit")
+    media_calls = []
+
+    async def media_handler(call):
+        media_calls.append(call.data["media_content_id"])
+        if call.data["media_content_id"] == "library://x":
+            from homeassistant.exceptions import HomeAssistantError
+
+            raise HomeAssistantError("Music Assistant: Eintrag weg")
+
+    hass.services.async_register("media_player", "play_media", media_handler)
+    await _telegram(hass, "3/0/1", (0,))
+    # Quelle scheitert, Medium scheitert, Sender spielt
+    assert len(source_calls) == 1 and media_calls == ["library://x", WDR4]
+    warnings = [r.getMessage() for r in _own_logs(caplog, "WARNING")]
+    assert len(warnings) == 2
+    assert "weiter mit Medium 'library://x'" in warnings[0] and "weiter mit Sender 'WDR 4'" in warnings[1]
+
+
+async def test_nothing_plays_but_nothing_breaks(hass: HomeAssistant, caplog) -> None:
+    _, m = await _setup(hass, start_source="Jazz", addr_toggle="1/0/4", addr_stop="1/0/3")
+    _failing_service(hass, "select_source", "kein Favorit")
+    await _telegram(hass, "1/0/4", 1)
+    assert not m["media_play"]  # kein Ersatz, auch kein Weiterspielen alter Inhalte
+    assert "kein Ersatz eingestellt" in caplog.text
+    await _telegram(hass, "1/0/3", 1)  # der Eintrag läuft weiter
+    assert len(m["media_stop"]) == 1
+
+
+async def test_empty_source_list_still_tries_the_source(hass: HomeAssistant) -> None:
+    # Player ohne Quellenliste (z. B. Music Assistant ohne Favoriten): trotzdem versuchen
+    _, m = await _setup(hass, attrs={"source_list": []}, start_source="Music Assistant Queue", addr_toggle="1/0/4")
+    await _telegram(hass, "1/0/4", 1)
+    assert m["select_source"][-1].data["source"] == "Music Assistant Queue"
 
 
 async def test_fixed_station_scene_and_start(hass: HomeAssistant) -> None:
