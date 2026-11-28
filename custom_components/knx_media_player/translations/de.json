@@ -66,6 +66,7 @@
             "description": "Gilt, wenn ein Play-Befehl einen Player startet, der nicht spielt. So wird nie eine alte hohe Lautstärke übernommen. Leer = keine Änderung. Pausieren und bereits laufende Wiedergabe bleiben unberührt.",
             "data": {
               "start_volume": "Lautstärke beim Start",
+              "start_ungroup": "Beim Start aus der Gruppe lösen",
               "start_station": "Sender beim Start",
               "start_source": "Quelle beim Start",
               "start_media": "Medium beim Start (Music Assistant)",
@@ -73,6 +74,7 @@
             },
             "data_description": {
               "start_volume": "Wird vor dem Start gesetzt, begrenzt durch die Lautstärkegrenze.",
+              "start_ungroup": "Ist der Lautsprecher gruppiert, startet nur er allein mit diesen Einstellungen; die übrigen Lautsprecher der Gruppe spielen weiter. Gilt auch für Szenen.",
               "start_station": "Feste Senderliste und, falls eingerichtet, Radio Browser (lokal und beliebt). Läuft, wenn weder Quelle noch Medium gesetzt sind oder diese nicht starten (Ersatz). Direkte Streams liefern oft kein Cover.",
               "start_source": "Spielt diese Quelle (z. B. einen Sonos-Favoriten) mit Cover und Titel, statt nur fortzusetzen. Hat Vorrang vor Medium und Sender; startet sie nicht (z. B. Favorit fehlt), spielt Medium oder Sender als Ersatz.",
               "start_media": "Name oder URI einer Playlist, eines Albums, Senders usw. Wird genutzt, wenn keine Quelle gesetzt ist oder sie nicht startet; hat Vorrang vor dem Sender.",

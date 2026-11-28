@@ -30,6 +30,7 @@ from .const import (
     CONF_START_MEDIA_TYPE,
     CONF_START_SOURCE,
     CONF_START_STATION,
+    CONF_START_UNGROUP,
     CONF_STATION_URIS,
     CONF_START_VOLUME,
     CONF_STATUS_ALBUM,
@@ -247,6 +248,9 @@ def _options_schema(
                 vol.Optional(
                     CONF_START_VOLUME, description=_suggest(CONF_START_VOLUME, defaults)
                 ): _number(0, 100),
+                vol.Optional(
+                    CONF_START_UNGROUP, default=bool(defaults.get(CONF_START_UNGROUP, False))
+                ): bool,
                 **(
                     {
                         vol.Optional(

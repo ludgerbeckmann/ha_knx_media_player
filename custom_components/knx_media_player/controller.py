@@ -32,6 +32,7 @@ from .const import (
     ACT_PLAY,
     ACT_PLAY_PAUSE,
     ACT_PLAY_CONTENT,
+    ACT_UNGROUP,
     ACT_PREVIOUS,
     ACT_STOP,
     ACT_VOLUME_DIM,
@@ -56,6 +57,7 @@ from .const import (
     CONF_START_SOURCE,
     CONF_START_STATION,
     CONF_STATION_URIS,
+    CONF_START_UNGROUP,
     CONF_START_VOLUME,
     CONF_STATUS_ALBUM,
     CONF_STATUS_ARTIST,
@@ -212,6 +214,11 @@ def build_commands(get: Any) -> list[dict[str, Any]]:
                 base[K_SCENE] = number
             else:
                 base[K_WHEN] = WHEN_ON
+            # Gruppe zuerst verlassen, damit Lautstärke und Inhalt nur diesen Player betreffen
+            if get(CONF_START_UNGROUP) and (volume is not None or source or media or station):
+                commands.append(
+                    {**base, K_ID: f"scene_{number}:{dpt}:ungroup", K_ACTION: ACT_UNGROUP}
+                )
             # Lautstärke zuerst, damit die Quelle nicht kurz mit der alten Lautstärke startet
             if volume is not None:
                 commands.append(
@@ -586,9 +593,25 @@ class KnxMediaPlayerController:
             )
         return False
 
+    async def _async_ungroup(self, state) -> None:
+        """Player aus seiner Gruppe lösen, wenn er mit anderen gruppiert ist (`group_members`).
+
+        Schlägt `unjoin` fehl, folgt nur eine Warnung; der Start läuft trotzdem weiter."""
+        members = state.attributes.get("group_members")
+        if not isinstance(members, (list, tuple)) or not any(m != self.player for m in members):
+            return
+        error = await self._async_player_call("unjoin", quiet=True)
+        if error is not None:
+            _LOGGER.warning(
+                "%s: %s lässt sich nicht aus der Gruppe lösen (%s); Start mit Gruppe",
+                self.entry.title, self.player, error,
+            )
+
     async def _async_start(self, state) -> None:
         """Wiedergabe starten; spielt der Player noch nicht, zuerst Startlautstärke und Startquelle/-medium/-sender."""
         if state.state != STATE_PLAYING:
+            if self._get(CONF_START_UNGROUP):
+                await self._async_ungroup(state)
             volume = self._get(CONF_START_VOLUME)
             if volume is not None:
                 await self._async_set_volume(float(volume))
@@ -632,6 +655,8 @@ class KnxMediaPlayerController:
             await self._async_set_volume(current + step if up else current - step)
         elif action == ACT_MUTE_SET:
             await self._async_player_call("volume_mute", is_volume_muted=bool(value))
+        elif action == ACT_UNGROUP:
+            await self._async_ungroup(state)
         elif action == ACT_PLAY_CONTENT:
             await self._async_play_content(
                 state,

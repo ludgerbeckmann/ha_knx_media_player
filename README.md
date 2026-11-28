@@ -102,6 +102,11 @@ Wiedergabe). Der **Stopp**-Befehl stoppt immer.
 (z. B. eine Music-Assistant-Playlist) gewählt werden. So wird nie eine alte, hohe Lautstärke übernommen.
 Pausieren und bereits laufende Wiedergabe bleiben unberührt.
 
+**Beim Start aus der Gruppe lösen** (Haken in der Wiedergabeoption): Ist der Lautsprecher mit anderen gruppiert,
+löst er sich vor dem Start aus der Gruppe (`media_player.unjoin`) und spielt allein mit den eingestellten Optionen;
+die übrigen Lautsprecher spielen weiter. Der Haken gilt auch für Szenen. Ohne Haken bleibt die Gruppe bestehen.
+Schlägt das Lösen fehl, steht eine Warnung im Protokoll und der Start läuft trotzdem.
+
 **Szenen 1–5:** Jede Szene kann eine Lautstärke setzen und einen Sender, eine Quelle oder ein Medium starten. Ausgelöst wird sie über
 die Szenennummer auf der Szenenadresse oder über eine eigene 1-Bit-Adresse (1 = starten, 0 = Pause). Eine Szene
 mit Quelle, Medium oder Lautstärke braucht die Szenenadresse oder eine eigene 1-Bit-Adresse.

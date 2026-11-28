@@ -66,6 +66,7 @@
             "description": "Applies when a play command starts a player that is not playing, so an old loud volume is never resumed. Empty = no change. Pausing and already running playback are not affected.",
             "data": {
               "start_volume": "Volume at start",
+              "start_ungroup": "Leave group at start",
               "start_station": "Station at start",
               "start_source": "Source at start",
               "start_media": "Media at start (Music Assistant)",
@@ -73,6 +74,7 @@
             },
             "data_description": {
               "start_volume": "Set before starting, capped by the volume limit.",
+              "start_ungroup": "If the speaker is grouped, only it starts with these settings; the other speakers of the group keep playing. Also applies to scenes.",
               "start_station": "Fixed station list and, if set up, Radio Browser (local and popular). Plays when neither source nor media is set or they do not start (fallback). Direct streams often provide no cover art.",
               "start_source": "Plays this source (e.g. a Sonos favorite) with cover and title instead of just resuming. Takes precedence over media and station; if it does not start (e.g. favorite missing), media or station plays instead.",
               "start_media": "Name or URI of a playlist, album, station etc. Used when no source is set or it does not start; takes precedence over the station.",
