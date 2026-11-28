@@ -20,7 +20,7 @@ from custom_components.knx_media_player.controller import build_commands, build_
 PLAYER = "media_player.living_room"
 SERVICES = (
     "media_play", "media_pause", "media_stop", "media_next_track",
-    "media_previous_track", "volume_set", "volume_mute", "select_source", "play_media",
+    "media_previous_track", "volume_set", "volume_mute", "select_source", "play_media", "unjoin",
 )
 
 
@@ -223,6 +223,62 @@ async def test_start_volume_and_source(hass: HomeAssistant) -> None:
     assert len(m["volume_set"]) == 1 and len(m["media_pause"]) == 1
 
 
+GROUP = ["media_player.living_room", "media_player.kitchen"]
+
+
+async def test_start_ungroup(hass: HomeAssistant) -> None:
+    _, m = await _setup(
+        hass, start_ungroup=True, start_volume=20, start_source="Jazz", addr_toggle="1/0/4",
+        attrs={"group_members": GROUP},
+    )
+    await _telegram(hass, "1/0/4", 1)
+    assert m["unjoin"][-1].data == {"entity_id": PLAYER}
+    assert m["volume_set"] and m["select_source"][-1].data["source"] == "Jazz"
+    # läuft schon: nicht erneut lösen
+    hass.states.async_set(PLAYER, "playing", {"group_members": GROUP, "media_duration": 200})
+    await _telegram(hass, "1/0/4", 1)
+    assert len(m["unjoin"]) == 1
+
+
+async def test_start_ungroup_not_needed(hass: HomeAssistant) -> None:
+    # Gruppe nur aus sich selbst: kein unjoin
+    _, m = await _setup(hass, start_ungroup=True, addr_toggle="1/0/4", attrs={"group_members": [PLAYER]})
+    await _telegram(hass, "1/0/4", 1)
+    assert not m["unjoin"] and len(m["media_play"]) == 1
+
+
+async def test_start_without_ungroup_option_keeps_group(hass: HomeAssistant) -> None:
+    _, m = await _setup(hass, addr_toggle="1/0/4", attrs={"group_members": GROUP})
+    await _telegram(hass, "1/0/4", 1)
+    assert not m["unjoin"] and len(m["media_play"]) == 1
+
+
+async def test_start_ungroup_failure_still_starts(hass: HomeAssistant, caplog) -> None:
+    _, m = await _setup(
+        hass, start_ungroup=True, start_source="Jazz", addr_toggle="1/0/4",
+        attrs={"group_members": GROUP},
+    )
+    hass.services.async_register(
+        "media_player", "unjoin", lambda call: (_ for _ in ()).throw(RuntimeError("kaputt"))
+    )
+    await _telegram(hass, "1/0/4", 1)
+    assert m["select_source"][-1].data["source"] == "Jazz"
+    assert "nicht aus der Gruppe lösen" in caplog.text
+
+
+async def test_scene_ungroup(hass: HomeAssistant) -> None:
+    _, m = await _setup(
+        hass, start_ungroup=True, addr_scene="3/0/1", scene_2_source="Jazz", scene_2_volume=25,
+        attrs={"group_members": GROUP},
+    )
+    await _telegram(hass, "3/0/1", (1,))
+    assert len(m["unjoin"]) == 1
+    assert m["volume_set"][-1].data["volume_level"] == 0.25
+    assert m["select_source"][-1].data["source"] == "Jazz"
+    await _telegram(hass, "3/0/1", (0,))  # Szene 1 leer: nichts weiter
+    assert len(m["unjoin"]) == 1
+
+
 async def test_scenes(hass: HomeAssistant) -> None:
     _, m = await _setup(
         hass, addr_scene="3/0/1", scene_2_source="Jazz", scene_2_volume=25,
@@ -354,7 +410,7 @@ def page(**fields):
             sections["playback"][key] = value
         elif key in ("addr_volume", "addr_volume_step", "addr_volume_dim", "addr_mute"):
             sections["volume"][key] = value
-        elif key in ("start_volume", "start_source", "start_media", "start_media_type", "start_station"):
+        elif key in ("start_volume", "start_ungroup", "start_source", "start_media", "start_media_type", "start_station"):
             sections["start"][key] = value
         elif key == "addr_scene":
             sections["scenes"][key] = value
@@ -500,7 +556,8 @@ async def test_playing_options_field_order(hass: HomeAssistant) -> None:
     # Quelle, Medium (mit Typ), dann Sender: wie der Vorrang beim Abspielen
     fields = {str(sec): [str(f) for f in m.schema.schema] for sec, m in schema.schema.items()}
     assert fields["start"] == [
-        "start_volume", "start_source", "start_media", "start_media_type", "start_station"
+        "start_volume", "start_ungroup", "start_source", "start_media", "start_media_type",
+        "start_station",
     ]
     assert fields["scene_1"] == [
         "scene_1_source", "scene_1_media", "scene_1_media_type", "scene_1_station",

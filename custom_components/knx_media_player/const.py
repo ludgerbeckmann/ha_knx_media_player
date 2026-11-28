@@ -18,6 +18,7 @@ PAUSE_PAUSE = "pause"
 PAUSE_STOP = "stop"
 PAUSE_MODES = [PAUSE_AUTO, PAUSE_PAUSE, PAUSE_STOP]
 CONF_START_VOLUME = "start_volume"
+CONF_START_UNGROUP = "start_ungroup"  # beim Start aus der Lautsprechergruppe lösen
 CONF_START_SOURCE = "start_source"
 CONF_START_STATION = "start_station"
 CONF_START_MEDIA = "start_media"
@@ -103,6 +104,7 @@ ACT_VOLUME_UP = "volume_up"
 ACT_VOLUME_DOWN = "volume_down"
 ACT_VOLUME_DIM = "volume_dim"
 ACT_MUTE_SET = "mute_set"
+ACT_UNGROUP = "ungroup"  # Player aus seiner Gruppe lösen (vor dem Start)
 ACT_PLAY_CONTENT = "play_content"  # Quelle, sonst Medium, sonst Sender (mit Ersatz)
 
 # Quellen der Rückmeldungen
